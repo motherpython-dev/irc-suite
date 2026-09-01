@@ -95,8 +95,12 @@
   .kv input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
   .ovrow{display:flex;align-items:center;gap:10px;padding:6px 0;
          border-top:1px solid var(--line)}
-  .ovrow .ovname{width:190px;font-size:13px}
+  .ovrow .ovname{width:180px;font-size:13px}
   .ovrow code{flex:1}
+  .ovrow .ovstate{font-size:12px;color:var(--light);width:64px}
+  .ovrow .ovstate.live{color:var(--live)}
+  .ovrow .sw{transform:scale(.82);transform-origin:left center}
+  button.mini{padding:5px 10px;font-size:12px;color:var(--dim)}
   code{background:var(--surface-2);padding:2px 6px;border-radius:6px;font-size:12px}
   #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px}
   .toast{background:var(--surface);border:1px solid var(--line);
@@ -236,12 +240,16 @@ function renderView(){
       ['commentators','Плашка комментаторов'], ['delta','Дельта пилотов'],
       ['pits','Пит-стопы'],
     ];
+    const vis = {};
+    (st.overlays || []).forEach(o => vis[o.id] = o.visible);
     const links = OV.map(([id,title]) => `
       <div class="ovrow">
+        <div class="sw ${vis[id]?'on':''}" data-ov="${id}"></div>
         <div class="ovname">${title}</div>
-        <code>/ov/${id}</code>
-        <button onclick="copyUrl('${id}')">копировать</button>
-        <button onclick="window.open('/ov/${id}','_blank')">открыть</button>
+        <div class="ovstate ${vis[id]?'live':''}">${vis[id]?'в эфире':'скрыт'}</div>
+        <div class="spacer"></div>
+        <button class="mini" onclick="copyUrl('${id}')" title="адрес для OBS на другой машине">адрес</button>
+        <button class="mini" onclick="window.open('/ov/${id}','_blank')" title="открыть страницу в браузере">в браузере</button>
       </div>`).join('');
 
     $('#view').innerHTML = `
@@ -395,8 +403,20 @@ function renderView(){
 document.addEventListener('click', async e => {
   const nav = e.target.closest('.navitem');
   if(nav){ tab = nav.dataset.tab; renderNav(); renderView(); return; }
+  const ov = e.target.closest('.sw[data-ov]');
+  if(ov){
+    const id = ov.dataset.ov;
+    const on = ov.classList.contains('on');
+    ov.classList.add('busy');
+    const r = await post('/api/broadcast/visibility', {id, visible: !on});
+    if(r.overlays) toast(`${MODULES.broadcast ? '' : ''}${
+      (r.overlays.find(o=>o.id===id)||{}).title}: ${!on ? 'в эфире' : 'убран'}`);
+    ov.classList.remove('busy');
+    refresh();
+    return;
+  }
   const sw = e.target.closest('.sw');
-  if(sw){
+  if(sw && sw.dataset.toggle){
     const id = sw.dataset.toggle;
     const on = sw.classList.contains('on');
     sw.classList.add('busy');
@@ -497,7 +517,13 @@ function copyUrl(name, direct){
     .catch(() => toast('Не удалось скопировать', 'err'));
 }
 
-function apply(st){ state = st; renderHeader(st); renderNav(); renderView(); }
+function apply(st){
+  // видимость оверлеев приходит внутри статуса модуля — поднимаем наверх,
+  // чтобы вкладка могла рисовать переключатели
+  const bc = (st.modules || []).find(m => m.id === 'broadcast');
+  st.overlays = (bc && bc.overlays) || [];
+  state = st; renderHeader(st); renderNav(); renderView();
+}
 async function refresh(){
   try{ apply(await (await fetch('/api/state')).json()); }catch(e){}
 }
