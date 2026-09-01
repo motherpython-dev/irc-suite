@@ -78,7 +78,8 @@ def register_bundled_fonts() -> int:
     import sys
     from pathlib import Path
     FR_PRIVATE = 0x10
-    bases = (Path(__file__).parent / "assets" / "fonts",
+    # ассеты лежат в пакете suite, модуль — на два уровня глубже
+    bases = (Path(__file__).resolve().parents[2] / "assets" / "fonts",
              Path(getattr(sys, "_MEIPASS", ".")) / "assets" / "fonts",
              Path(sys.executable).parent / "_internal" / "assets" / "fonts",
              Path(sys.executable).parent / "assets" / "fonts")
@@ -476,8 +477,10 @@ def load_logo(size: int = 22):
     """
     import sys
     from pathlib import Path
-    names = ("logo-irc.png", "icon.png", "logo.png", "icon.ico")
-    bases = (Path(__file__).parent / "assets",
+    names = ("logo-irc.png", "logo.png", "icon.png", "icon.ico")
+    # ассеты лежат в пакете suite, а модуль — на два уровня глубже
+    # (suite/modules/racecontrol/overlay.py), поэтому parents[2]
+    bases = (Path(__file__).resolve().parents[2] / "assets",
              Path(getattr(sys, "_MEIPASS", ".")) / "assets",
              Path(sys.executable).parent / "assets",
              Path(sys.executable).parent / "_internal" / "assets")

@@ -13,7 +13,7 @@ a = Analysis(
     datas=[
         (str(ROOT / 'app'), 'seed'),            # вшитый стартовый бандл
         (str(ROOT / 'assets' / 'icon.ico'), 'assets'),
-        (str(ROOT / 'assets' / 'icon.png'), 'assets'),   # логотип для оверлея
+        (str(ROOT / 'assets' / 'logo-irc.png'), 'assets'),  # знак iRC для оверлея
         (str(ROOT / 'assets' / 'fonts'), 'assets/fonts'),  # Inter/Rubik (OFL)
     ],
     # ВАЖНО: бандл racecontrol загружается ДИНАМИЧЕСКИ из %LOCALAPPDATA% и в
