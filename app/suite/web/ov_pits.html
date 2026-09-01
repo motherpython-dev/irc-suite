@@ -44,6 +44,10 @@
 async function pull(){
   try{
     const d = await (await fetch('/api/broadcast/pits')).json();
+    if(d.visible === false){            // режиссёр убрал графику из эфира
+      document.getElementById('root').innerHTML = '';
+      return;
+    }
     const root = document.getElementById('root');
     if(!d.rows || !d.rows.length){
       root.innerHTML = '<div class="off">пит-стопов пока не было</div>';

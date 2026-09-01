@@ -74,6 +74,16 @@ class PitTracker:
         return len(self._stops.get(car_idx, []))
 
 
+# порядок как в пульте
+OVERLAYS = (
+    ("tower", "Башня позиций"),
+    ("grid", "Стартовая решётка"),
+    ("commentators", "Комментаторы"),
+    ("delta", "Дельта пилотов"),
+    ("pits", "Пит-стопы"),
+)
+
+
 class BroadcastModule:
     id = "broadcast"
     title = "Оверлеи трансляции"
@@ -86,6 +96,7 @@ class BroadcastModule:
         self._thread: threading.Thread | None = None
         self._subsession = None
         self._rows: list[dict] = []
+        self.deck = None
 
     # ---------- жизненный цикл ----------
 
@@ -102,10 +113,54 @@ class BroadcastModule:
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
+        if self.deck:
+            try:
+                self.deck.stop()
+            except Exception:
+                pass
+            self.deck = None
+
+    def wants_main_thread(self) -> bool:
+        """Пульту нужен главный поток: он окно Tk поверх сима."""
+        return bool(self.ctx and self.ctx.config.get("deck_enabled", True))
+
+    def build_deck(self, host_root=None):
+        from .deck import BroadcastDeck
+        self.deck = BroadcastDeck(self, host_root)
+        return self.deck
 
     def status(self) -> dict:
         return {"cars": len(self._rows),
-                "overlays": ["tower", "grid", "commentators", "delta", "pits"]}
+                "overlays": [{"id": i, "title": t, "visible": self.is_visible(i)}
+                             for i, t in OVERLAYS]}
+
+    # ---------- что сейчас в эфире ----------
+
+    def _vis(self) -> dict:
+        return self.ctx.config.setdefault("visible", {})
+
+    def is_visible(self, overlay_id: str) -> bool:
+        """По умолчанию скрыто: графика выводится по решению режиссёра.
+
+        Исключение — башня: её обычно держат постоянно, и «пустой эфир при
+        первом запуске» удивил бы сильнее, чем лишняя строка на экране.
+        """
+        return bool(self._vis().get(overlay_id, overlay_id == "tower"))
+
+    def set_visible(self, overlay_id: str, visible: bool) -> dict:
+        if overlay_id not in dict(OVERLAYS):
+            return {"ok": False, "error": "unknown_overlay"}
+        self._vis()[overlay_id] = bool(visible)
+        # у плашки комментаторов свой флаг — держим их в согласии
+        if overlay_id == "commentators":
+            self.ctx.config["comm_visible"] = bool(visible)
+        self.ctx.save_config()
+        self.ctx.publish("overlays", self.visibility())
+        return {"ok": True, **self.visibility()}
+
+    def visibility(self) -> dict:
+        return {"overlays": [{"id": i, "title": t, "visible": self.is_visible(i)}
+                             for i, t in OVERLAYS]}
 
     # ---------- сбор данных ----------
 
@@ -153,6 +208,7 @@ class BroadcastModule:
                      and r not in shown]
             shown = shown + extra
         return {
+            "visible": self.is_visible("tower"),
             "mode": snap.mode,
             "track": snap.track,
             "session_time": snap.session_time,
@@ -182,19 +238,22 @@ class BroadcastModule:
         for r in rows:
             r["delta"] = round(r["time"] - pole, 3) if (r["time"] and pole) else 0.0
         c = self.ctx.config
-        return {"source": source,
+        return {"visible": self.is_visible("grid"),
+                "source": source,
                 "track": self.ctx.sim.snapshot().track,
                 "title": c.get("grid_title", "стартовая решётка"),
                 "rows": rows[:int(c.get("grid_rows", 24))]}
 
     def commentators(self) -> dict:
         c = self.ctx.config
-        return {"visible": bool(c.get("comm_visible", False)),
+        return {"visible": self.is_visible("commentators"),
                 "people": c.get("commentators", [])[:2],
                 "caption": c.get("comm_caption", "")}
 
     def set_commentators(self, data: dict) -> dict:
         c = self.ctx.config
+        if "visible" in data:
+            self._vis()["commentators"] = bool(data["visible"])
         if "people" in data:
             people = []
             for item in list(data["people"])[:2]:   # больше двух в плашку не влезает
@@ -219,7 +278,7 @@ class BroadcastModule:
         by_num = {r["car_number"]: r for r in self._rows}
         rows = [by_num.get(n) for n in pair]
         if len(rows) < 2 or not all(rows):
-            return {"ready": False, "pair": pair}
+            return {"ready": False, "visible": self.is_visible("delta"), "pair": pair}
         a, b = rows
         lead, chase = (a, b) if a["position"] < b["position"] else (b, a)
         gap = round(abs(chase["gap"] - lead["gap"]), 2)
@@ -230,7 +289,8 @@ class BroadcastModule:
             diff = gap - prev
             trend = -1 if diff < -0.05 else (1 if diff > 0.05 else 0)
         self._delta_prev = gap
-        return {"ready": True, "gap": gap, "trend": trend,
+        return {"ready": True, "visible": self.is_visible("delta"),
+                "gap": gap, "trend": trend,
                 "lead": {"car_number": lead["car_number"], "name": lead["name"],
                          "position": lead["position"]},
                 "chase": {"car_number": chase["car_number"], "name": chase["name"],
@@ -257,7 +317,8 @@ class BroadcastModule:
                 # что резину не меняли (см. ТЗ, B5)
                 "tyre_changed": stops[-1]["tyre_changed"] if stops else None,
             })
-        return {"title": c.get("pits_title", "пит-стопы"),
+        return {"visible": self.is_visible("pits"),
+                "title": c.get("pits_title", "пит-стопы"),
                 "rows": rows[:int(c.get("pits_rows", 12))]}
 
     def settings(self) -> dict:
@@ -316,6 +377,10 @@ class BroadcastModule:
             "POST /api/broadcast/commentators": lambda r: self.set_commentators(body(r)),
             "GET /api/broadcast/delta": lambda r: self.delta(),
             "GET /api/broadcast/pits": lambda r: self.pits(),
+            "GET /api/broadcast/visibility": lambda r: self.visibility(),
+            "POST /api/broadcast/visibility":
+                lambda r: (lambda b: self.set_visible(str(b.get("id", "")),
+                                                      bool(b.get("visible"))))(body(r)),
             "GET /api/broadcast/settings": lambda r: self.settings(),
             "POST /api/broadcast/settings": lambda r: self.set_settings(body(r)),
         }

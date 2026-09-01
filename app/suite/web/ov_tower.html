@@ -107,6 +107,10 @@ function render(data){
 async function pull(){
   try{
     const d = await (await fetch('/api/broadcast/tower')).json();
+    if(d.visible === false){            // режиссёр убрал графику из эфира
+      document.getElementById('root').innerHTML = '';
+      return;
+    }
     cfg = d;
     render(d);
   }catch(e){}

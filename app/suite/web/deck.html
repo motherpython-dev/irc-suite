@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B0E14">
+<meta name="mobile-web-app-capable" content="yes">
+<title>iRC · пульт</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14; --surface:#141923; --surface-2:#1B2230; --surface-3:#232C3D;
+    --line:#28303F; --fg:#EAEEF5; --dim:#9AA6B8; --light:#6B7689;
+    --accent:#FF5A1F; --live:#22C55E; --off:#6B7689;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--fg);
+       font:15px/1.35 'Inter',system-ui,-apple-system,sans-serif;
+       padding:calc(env(safe-area-inset-top) + 10px) 12px
+               calc(env(safe-area-inset-bottom) + 16px)}
+
+  header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  header img{height:24px}
+  .pill{margin-left:auto;padding:4px 11px;border-radius:999px;font-size:12px;
+        font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .pill.LIVE{background:rgba(34,197,94,.14);color:var(--live)}
+  .pill.REPLAY{background:rgba(245,158,11,.14);color:#F59E0B}
+  .pill.OFFLINE{background:rgba(107,118,137,.14);color:var(--off)}
+
+  h2{font-family:'Rubik',sans-serif;font-size:12px;text-transform:uppercase;
+     letter-spacing:.7px;color:var(--dim);margin:18px 0 8px}
+
+  /* Кнопки крупные: пультом пользуются на телефоне одной рукой,
+     часто не глядя — мелкие цели тут не работают. */
+  .ov{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+      background:var(--surface);border:1px solid var(--line);border-radius:14px;
+      padding:16px 16px;margin-bottom:10px;color:var(--fg);font:inherit;
+      cursor:pointer;transition:background .12s,border-color .12s}
+  .ov:active{background:var(--surface-3)}
+  .ov.on{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.08)}
+  .dot{width:12px;height:12px;border-radius:50%;background:var(--off);flex:none}
+  .ov.on .dot{background:var(--live);box-shadow:0 0 10px rgba(34,197,94,.7)}
+  .ov .t{font-weight:600}
+  .ov .s{margin-left:auto;font-size:12.5px;color:var(--light)}
+  .ov.on .s{color:var(--live)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+       padding:14px;color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+  .btn:active{background:var(--surface-3)}
+  .btn.warn{color:#F59E0B}
+  .meta{color:var(--light);font-size:12px;margin-top:14px;text-align:center}
+  #toast{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 12px);
+         background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--accent);
+         border-radius:12px;padding:12px 14px;font-size:13.5px;
+         transform:translateY(140%);transition:transform .2s}
+  #toast.on{transform:none}
+</style>
+</head>
+<body>
+<header>
+  <img src="/assets/logo.png" alt="iRC">
+  <div class="pill OFFLINE" id="mode">offline</div>
+</header>
+
+<h2>В эфире</h2>
+<div id="overlays"></div>
+
+<h2>Быстрые действия</h2>
+<div class="grid2">
+  <button class="btn" onclick="allOff()">Убрать всё</button>
+  <button class="btn" onclick="only('tower')">Только башня</button>
+  <button class="btn warn" onclick="only('grid')">Решётка на старт</button>
+  <button class="btn" onclick="toggleComm()">Комментаторы</button>
+</div>
+
+<div class="meta" id="meta"></div>
+<div id="toast"></div>
+
+<script>
+let state = {overlays: []};
+let tmr = null;
+
+function toast(text){
+  const t = document.getElementById('toast');
+  t.textContent = text; t.classList.add('on');
+  clearTimeout(tmr); tmr = setTimeout(() => t.classList.remove('on'), 2200);
+}
+
+async function api(url, body){
+  const opt = body ? {method:'POST', headers:{'Content-Type':'application/json'},
+                      body: JSON.stringify(body)} : {};
+  const r = await fetch(url, opt);
+  return r.json();
+}
+
+function render(){
+  document.getElementById('overlays').innerHTML = state.overlays.map(o => `
+    <button class="ov ${o.visible?'on':''}" data-id="${o.id}">
+      <span class="dot"></span>
+      <span class="t">${o.title}</span>
+      <span class="s">${o.visible ? 'в эфире' : 'скрыт'}</span>
+    </button>`).join('') ||
+    '<div class="meta">модуль оверлеев выключен</div>';
+}
+
+async function refresh(){
+  try{
+    const [st, vis] = await Promise.all([
+      api('/api/state'), api('/api/broadcast/visibility').catch(() => ({overlays:[]}))
+    ]);
+    const m = document.getElementById('mode');
+    m.className = 'pill ' + st.mode; m.textContent = st.mode;
+    document.getElementById('meta').textContent =
+      st.connected ? `${st.track || 'сессия'} · ${st.drivers} пилотов` : 'сим не найден';
+    state.overlays = vis.overlays || [];
+    render();
+  }catch(e){}
+}
+
+document.getElementById('overlays').addEventListener('click', async e => {
+  const b = e.target.closest('.ov'); if(!b) return;
+  const id = b.dataset.id;
+  const cur = state.overlays.find(o => o.id === id);
+  const r = await api('/api/broadcast/visibility', {id, visible: !cur.visible});
+  if(r.overlays){ state.overlays = r.overlays; render(); }
+  toast(`${cur.title}: ${!cur.visible ? 'в эфире' : 'убран'}`);
+});
+
+async function setAll(ids){
+  for(const o of state.overlays){
+    const want = ids.includes(o.id);
+    if(o.visible !== want) await api('/api/broadcast/visibility', {id:o.id, visible:want});
+  }
+  await refresh();
+}
+async function allOff(){ await setAll([]); toast('Эфир очищен'); }
+async function only(id){
+  await setAll([id]);
+  toast('В эфире только: ' + (state.overlays.find(o=>o.id===id)||{}).title);
+}
+async function toggleComm(){
+  const c = state.overlays.find(o => o.id === 'commentators');
+  if(!c) return;
+  await api('/api/broadcast/visibility', {id:'commentators', visible:!c.visible});
+  await refresh();
+  toast('Комментаторы: ' + (!c.visible ? 'в эфире' : 'убраны'));
+}
+
+refresh();
+setInterval(refresh, 1500);
+</script>
+</body>
+</html>

@@ -259,6 +259,25 @@ function renderView(){
             размер и место задаёт сам OBS:</div>
           <div style="height:8px"></div>
           ${links}
+          <div style="height:16px"></div>
+          <h3>Пульт эфира</h3>
+          <div class="state">Управлять графикой можно тремя способами: пультом
+            поверх сима, окном на втором мониторе или с телефона.</div>
+          <div style="height:10px"></div>
+          <div class="ovrow">
+            <div class="ovname">Пульт (окно/телефон)</div>
+            <code>/deck</code>
+            <button onclick="copyUrl('','deck')">копировать</button>
+            <button onclick="window.open('/deck','_blank')">открыть</button>
+          </div>
+          <div style="height:12px"></div>
+          <div class="row">
+            <div class="sw ${state.allow_lan?'on':''}" onclick="toggleLan()"></div>
+            <div class="state">Доступ с телефона${state.lan_url
+              ? `: <code>${state.lan_url}deck</code>` : ' (выключен)'}</div>
+          </div>
+          <div class="state" style="margin-top:8px">Пульт в своей сети открыт
+            без пароля — включай в домашней сети, не в открытом Wi-Fi.</div>
         </div>
 
         <div class="card">
@@ -377,6 +396,14 @@ document.addEventListener('click', async e => {
   }
 });
 
+async function toggleLan(){
+  const r = await post('/api/lan', {allow: !state.allow_lan});
+  if(r.ok) toast(r.allow_lan
+    ? 'Доступ с телефона включён — перезапусти iRC, чтобы применилось'
+    : 'Доступ с телефона выключен — нужен перезапуск');
+  refresh();
+}
+
 async function loadBroadcast(){
   try{
     const s = await (await fetch('/api/broadcast/settings')).json();
@@ -445,8 +472,9 @@ async function showComm(visible){
   }
 }
 
-function copyUrl(name){
-  const url = location.origin + '/ov/' + name;
+function copyUrl(name, direct){
+  const url = direct ? (state.lan_url || location.origin + '/') + direct
+                     : location.origin + '/ov/' + name;
   navigator.clipboard.writeText(url)
     .then(() => toast('Скопировано: ' + url))
     .catch(() => toast('Не удалось скопировать', 'err'));

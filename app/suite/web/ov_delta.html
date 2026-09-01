@@ -41,6 +41,10 @@
 async function pull(){
   try{
     const d = await (await fetch('/api/broadcast/delta')).json();
+    if(d.visible === false){            // режиссёр убрал графику из эфира
+      document.getElementById('root').innerHTML = '';
+      return;
+    }
     const root = document.getElementById('root');
     if(!d.ready){
       root.innerHTML = `<div class="off">${d.pair && d.pair.length

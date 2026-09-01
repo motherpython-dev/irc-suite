@@ -20,6 +20,9 @@ DEFAULTS = {
     "http_port": 8777,
     "poll_hz": 5.0,
     "open_panel_on_start": False,
+    # Доступ к панели с телефона в своей сети. Пароля нет: включать
+    # осмысленно в домашней сети, не в открытом Wi-Fi
+    "allow_lan": False,
     # автообновление
     "update_url": "",
     "update_check_on_start": True,
@@ -68,6 +71,15 @@ DEFAULTS = {
             "show_pits": True,
             "focus_car": "",             # держать эту машину в кадре
             "commentators": [],
+            # Что сейчас в эфире. Управляет iRC, а не сцены OBS: в OBS все
+            # источники добавляются один раз и висят постоянно.
+            "visible": {"tower": True},
+            # Пульт поверх сима — единственный способ увидеть и переключить
+            # эфир, не сворачивая полноэкранный iRacing на одном мониторе
+            "deck_enabled": True,
+            "deck_alpha": 0.96,
+            "deck_x": 470,
+            "deck_y": 24,
         },
         "rutp": {
             "enabled": False,

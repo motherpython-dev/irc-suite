@@ -1,7 +1,11 @@
-"""Локальный HTTP + SSE сервер — общий для всех модулей Suite.
+"""HTTP + SSE сервер — общий для всех модулей iRC.
 
 Только stdlib: чем меньше зависимостей, тем меньше поводов сборке сломаться.
-Слушает исключительно 127.0.0.1 — наружу ничего не торчит.
+
+По умолчанию слушает 127.0.0.1. Режиссёру часто нужен пульт с телефона —
+тогда сервер поднимается на всех интерфейсах (`bind_all`), и адрес в локальной
+сети показывается в панели. Наружу за роутер это не выходит, но в своей сети
+управление доступно любому, кто знает адрес: пароля здесь нет.
 
 Роуты бывают двух видов:
   * ядра — состояние, модули, обновления;
@@ -57,6 +61,7 @@ class Api:
     def drivers(self) -> list[dict]: ...
     def find_drivers(self, query: str, limit: int = 8) -> list[dict]: ...
     def set_module(self, module_id: str, enabled: bool) -> dict: ...
+    def set_lan(self, allow: bool) -> dict: ...
 
 
 def make_handler(api: Api, hub: Hub, dynamic=None):
@@ -137,6 +142,8 @@ def make_handler(api: Api, hub: Hub, dynamic=None):
                 return self._file(WEB_DIR / "index.html", "text/html; charset=utf-8")
             if p == "/assets/logo.png":
                 return self._file(ASSETS_DIR / "logo-irc.png", "image/png")
+            if p == "/deck":
+                return self._file(WEB_DIR / "deck.html", "text/html; charset=utf-8")
             if p == "/racecontrol":
                 return self._file(WEB_DIR / "racecontrol.html", "text/html; charset=utf-8")
             if p == "/api/state":
@@ -156,6 +163,8 @@ def make_handler(api: Api, hub: Hub, dynamic=None):
             if self._dynamic(p, "POST"):
                 return
             body = self._body()
+            if p == "/api/lan":
+                return self._json(api.set_lan(bool(body.get("allow"))))
             if p == "/api/modules/set":
                 return self._json(api.set_module(str(body.get("id", "")),
                                                  bool(body.get("enabled"))))
@@ -186,11 +195,31 @@ def make_handler(api: Api, hub: Hub, dynamic=None):
     return Handler
 
 
+def lan_ip() -> str:
+    """Адрес машины в локальной сети — для телефона.
+
+    Определяем через UDP-сокет к внешнему адресу: пакет никуда не уходит,
+    но система выбирает интерфейс, через который пошла бы отправка.
+    """
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
 class PanelServer:
-    def __init__(self, api: Api, hub: Hub, port: int, dynamic=None):
+    def __init__(self, api: Api, hub: Hub, port: int, dynamic=None,
+                 bind_all: bool = False):
         self.hub = hub
         self.port = port
-        self._httpd = ThreadingHTTPServer(("127.0.0.1", port),
+        self.bind_all = bind_all
+        host = "0.0.0.0" if bind_all else "127.0.0.1"
+        self._httpd = ThreadingHTTPServer((host, port),
                                           make_handler(api, hub, dynamic))
         self._httpd.daemon_threads = True
         self._thread: threading.Thread | None = None
@@ -198,6 +227,11 @@ class PanelServer:
     @property
     def url(self) -> str:
         return f"http://127.0.0.1:{self.port}/"
+
+    @property
+    def lan_url(self) -> str:
+        """Адрес для телефона. Пусто, если сервер слушает только локально."""
+        return f"http://{lan_ip()}:{self.port}/" if self.bind_all else ""
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._httpd.serve_forever,

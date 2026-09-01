@@ -45,6 +45,10 @@ function lap(t){
 async function pull(){
   try{
     const d = await (await fetch('/api/broadcast/grid')).json();
+    if(d.visible === false){            // режиссёр убрал графику из эфира
+      document.getElementById('root').innerHTML = '';
+      return;
+    }
     if(!d.rows || !d.rows.length){
       document.getElementById('root').innerHTML =
         '<div class="off">ожидание результатов квалификации…</div>';

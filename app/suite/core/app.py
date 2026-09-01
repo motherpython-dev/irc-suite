@@ -34,7 +34,8 @@ class Application:
         self.hub = Hub()
         self.registry = Registry(log)
         self.server = PanelServer(self, self.hub, int(self.cfg.get("http_port", 8777)),
-                                  dynamic=self.registry.routes)
+                                  dynamic=self.registry.routes,
+                                  bind_all=bool(self.cfg.get("allow_lan", False)))
 
         self._stop = threading.Event()
         self.on_module_change = None     # трей перерисовывает меню
@@ -60,6 +61,12 @@ class Application:
             log=logging.getLogger(f"module.{module_id}"),
             app=self,
         )
+
+    def set_lan(self, allow: bool) -> dict:
+        """Доступ с телефона. Требует перезапуска: порт занимается при старте."""
+        self.cfg["allow_lan"] = bool(allow)
+        config.save(self.cfg)
+        return {"ok": True, "allow_lan": bool(allow), "restart_required": True}
 
     def set_module(self, module_id: str, enabled: bool) -> dict:
         """Включить или выключить модуль на лету."""
@@ -104,6 +111,8 @@ class Application:
             "subsession_id": s.subsession_id,
             "drivers": len(s.drivers),
             "modules": self.registry.statuses(),
+            "lan_url": self.server.lan_url,
+            "allow_lan": bool(self.cfg.get("allow_lan", False)),
         }
 
     def drivers(self) -> list[dict]:

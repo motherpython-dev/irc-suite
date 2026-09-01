@@ -111,6 +111,11 @@ def main() -> int:
             tray.overlay = overlay
             log.info("оверлей рейс-контрола запущен")
 
+        bc = app.module("broadcast")
+        if bc and getattr(bc, "ctx", None) and bc.wants_main_thread():
+            bc.build_deck(host.root())
+            log.info("пульт трансляции запущен")
+
         host.run()                    # блокирует до выхода из трея
         return 0
     except Exception:
