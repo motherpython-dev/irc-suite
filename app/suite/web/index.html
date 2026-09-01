@@ -89,6 +89,10 @@
   .empty{color:var(--dim);padding:40px 0;text-align:center}
   .kv{display:grid;grid-template-columns:190px 1fr;gap:8px 16px;font-size:13px}
   .kv div:nth-child(odd){color:var(--dim)}
+  .kv input[type=text], .kv input:not([type]), .kv input[type=number], .kv select{
+    width:100%;background:var(--surface-2);color:var(--fg);
+    border:1px solid var(--line);border-radius:8px;padding:6px 9px;font:inherit;font-size:13px}
+  .kv input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
   code{background:var(--surface-2);padding:2px 6px;border-radius:6px;font-size:12px}
   #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px}
   .toast{background:var(--surface);border:1px solid var(--line);
@@ -222,6 +226,45 @@ function renderView(){
       <div class="empty">Модуль ещё не реализован — см. ТЗ, этапы работ.</div>`;
     return;
   }
+  if(tab === 'broadcast'){
+    $('#view').innerHTML = `
+      <h1>${meta.title}</h1><div class="sub">${meta.desc}</div>
+      <div class="cards">
+        <div class="card">
+          <h3>Модуль</h3>
+          <div class="row">
+            <div class="sw ${st.started?'on':''}" data-toggle="broadcast"></div>
+            <div class="state ${st.started?'':'off'}"><b>${st.started?'включён':'выключен'}</b></div>
+            ${st.started ? `<div class="spacer"></div><div class="state">машин: ${st.cars ?? 0}</div>` : ''}
+          </div>
+          <div style="height:12px"></div>
+          <div class="state">Источник для OBS (browser source):</div>
+          <div style="height:6px"></div>
+          <code id="ov-url">http://127.0.0.1:8777/ov/tower</code>
+          <div style="height:10px"></div>
+          <button onclick="copyUrl()">Скопировать адрес</button>
+          <button onclick="window.open('/ov/tower','_blank')">Открыть</button>
+        </div>
+        <div class="card">
+          <h3>Башня позиций</h3>
+          <div class="kv">
+            <div>Заголовок</div><div><input id="b-title" placeholder="позиции"></div>
+            <div>Строк в кадре</div><div><input id="b-rows" type="number" min="3" max="40"></div>
+            <div>Гэп считать</div><div>
+              <select id="b-gap">
+                <option value="leader">до лидера</option>
+                <option value="ahead">до впереди идущего</option>
+              </select></div>
+            <div>Держать в кадре #</div><div><input id="b-focus" placeholder="номер"></div>
+            <div>Показывать питы</div><div><input id="b-pits" type="checkbox"></div>
+          </div>
+          <div style="height:12px"></div>
+          <button class="primary" onclick="saveBroadcast()">Применить</button>
+        </div>
+      </div>`;
+    loadBroadcast();
+    return;
+  }
   if(tab === 'racecontrol'){
     $('#view').innerHTML = `
       <h1>${meta.title}</h1><div class="sub">${meta.desc}</div>
@@ -259,6 +302,33 @@ document.addEventListener('click', async e => {
     refresh();
   }
 });
+
+async function loadBroadcast(){
+  try{
+    const s = await (await fetch('/api/broadcast/settings')).json();
+    const set = (id, v) => { const el = $(id); if(el) el.value = v; };
+    set('#b-title', s.tower_title || '');
+    set('#b-rows', s.tower_rows);
+    set('#b-gap', s.gap_mode);
+    set('#b-focus', s.focus_car || '');
+    const p = $('#b-pits'); if(p) p.checked = !!s.show_pits;
+  }catch(e){}
+}
+async function saveBroadcast(){
+  const r = await post('/api/broadcast/settings', {
+    tower_title: $('#b-title').value,
+    tower_rows: Number($('#b-rows').value) || 12,
+    gap_mode: $('#b-gap').value,
+    focus_car: $('#b-focus').value.replace('#','').trim(),
+    show_pits: $('#b-pits').checked,
+  });
+  if(r.ok) toast('Настройки башни применены');
+}
+function copyUrl(){
+  navigator.clipboard.writeText($('#ov-url').textContent)
+    .then(() => toast('Адрес скопирован — добавь в OBS как browser source'))
+    .catch(() => toast('Не удалось скопировать', 'err'));
+}
 
 function apply(st){ state = st; renderHeader(st); renderNav(); renderView(); }
 async function refresh(){

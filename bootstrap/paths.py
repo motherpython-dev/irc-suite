@@ -18,8 +18,13 @@ from pathlib import Path
 
 
 def data_dir() -> Path:
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-    p = Path(base) / "iRC"
+    """IRC_DATA_DIR переопределяет папку — см. комментарий в suite/core/config.py."""
+    override = os.environ.get("IRC_DATA_DIR")
+    if override:
+        p = Path(override)
+    else:
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home())
+        p = Path(base) / "iRC"
     p.mkdir(parents=True, exist_ok=True)
     return p
 

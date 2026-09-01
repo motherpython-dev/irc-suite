@@ -30,6 +30,9 @@ class Driver:
     name: str
     user_id: int = 0
     team: str = ""
+    car_class: int = 0
+    class_name: str = ""
+    car_name: str = ""
 
 
 @dataclass
@@ -239,6 +242,66 @@ class SimClient:
                 out[idx] = int(surf[idx])
         return out
 
+    def timing(self) -> list[dict]:
+        """Строки таймингов всего поля — для башни трансляции.
+
+        Читается из массивов CarIdx*, поэтому работает и когда сессия не отдаёт
+        ResultsPositions (в квалификации их не было). В повторе значения
+        относятся к просматриваемому кадру — модуль решает, показывать их или нет.
+        """
+        try:
+            pos = self.ir["CarIdxPosition"] or []
+            cls_pos = self.ir["CarIdxClassPosition"] or []
+            gap = self.ir["CarIdxF2Time"] or []
+            laps = self.ir["CarIdxLapCompleted"] or []
+            lap_now = self.ir["CarIdxLap"] or []
+            pit = self.ir["CarIdxOnPitRoad"] or []
+            surf = self.ir["CarIdxTrackSurface"] or []
+            last = self.ir["CarIdxLastLapTime"] or []
+            best = self.ir["CarIdxBestLapTime"] or []
+            dist = self.ir["CarIdxLapDistPct"] or []
+            tyre = self.ir["CarIdxTireCompound"] or []
+        except Exception:
+            return []
+
+        def at(arr, i, default=0):
+            try:
+                v = arr[i]
+            except (IndexError, TypeError):
+                return default
+            return default if v is None else v
+
+        rows = []
+        for idx, d in self._drivers.items():
+            p = int(at(pos, idx, 0))
+            if p <= 0:                      # машина не в заезде
+                continue
+            rows.append({
+                "car_idx": idx,
+                "position": p,
+                "class_position": int(at(cls_pos, idx, 0)),
+                "car_number": d.car_number,
+                "name": d.name,
+                "team": d.team,
+                "car_class": d.car_class,
+                "class_name": d.class_name,
+                # F2Time — оценка сима: до лидера или до идущего впереди,
+                # в зависимости от типа сессии. Точность на разорванном поле
+                # хуже секунды, для башни этого достаточно
+                "gap": round(float(at(gap, idx, 0.0)), 3),
+                "laps": int(at(laps, idx, 0)),
+                "lap": int(at(lap_now, idx, 0)),
+                "on_pit": bool(at(pit, idx, False)),
+                "in_pit_stall": int(at(surf, idx, -1)) == 1,
+                "not_in_world": int(at(surf, idx, -1)) == -1,
+                "last_lap": round(float(at(last, idx, 0.0)), 3),
+                "best_lap": round(float(at(best, idx, 0.0)), 3),
+                "lap_dist": round(float(at(dist, idx, 0.0)), 4),
+                "tyre": int(at(tyre, idx, -1)),
+            })
+        rows.sort(key=lambda r: r["position"])
+        return rows
+
     def camera_groups(self) -> dict[str, int]:
         """{'TV1': 2, 'Nose': 1, ...} из session YAML CameraInfo."""
         try:
@@ -414,6 +477,10 @@ class SimClient:
                     name=str(d.get("UserName") or "?"),
                     user_id=int(d.get("UserID") or 0),
                     team=str(d.get("TeamName") or ""),
+                    car_class=int(d.get("CarClassID") or 0),
+                    class_name=str(d.get("CarClassShortName") or ""),
+                    car_name=str(d.get("CarScreenNameShort")
+                                 or d.get("CarScreenName") or ""),
                 )
             if drivers:
                 self._drivers = drivers

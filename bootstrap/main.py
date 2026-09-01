@@ -68,6 +68,7 @@ def main() -> int:
         from suite.core.app import Application
         from suite.core.tray import Tray
         from suite.core.ui import host
+        from suite.modules.broadcast import BroadcastModule
         from suite.modules.racecontrol import RaceControlModule
     except Exception:
         log.error("не удалось загрузить бандл:\n%s", traceback.format_exc())
@@ -82,7 +83,8 @@ def main() -> int:
         updater.manifest_url = str(app.cfg.get("update_url") or "")
 
         app.register(RaceControlModule())
-        # сюда же встанут broadcast и rutp по мере готовности
+        app.register(BroadcastModule())
+        # сюда же встанет rutp по мере готовности
 
         tray = Tray(app)
         app.on_mode_change = lambda old, new: tray.update_mode(new)

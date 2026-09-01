@@ -61,8 +61,12 @@ DEFAULTS = {
         },
         "broadcast": {
             "enabled": False,
+            "refresh_hz": 3,             # чаще смысла нет: башня не про кадры
             "tower_rows": 12,
+            "tower_title": "",
             "gap_mode": "leader",        # leader | ahead
+            "show_pits": True,
+            "focus_car": "",             # держать эту машину в кадре
             "commentators": [],
         },
         "rutp": {
@@ -75,8 +79,18 @@ DEFAULTS = {
 
 
 def data_dir() -> Path:
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-    p = Path(base) / "iRC"
+    """Папка данных пользователя.
+
+    IRC_DATA_DIR переопределяет её — это нужно тестам и запускам из исходников:
+    без такой отдельной папки пробный прогон пишет свой порт и свои настройки
+    в боевой конфиг, и установленное приложение потом стартует не там, где ждут.
+    """
+    override = os.environ.get("IRC_DATA_DIR")
+    if override:
+        p = Path(override)
+    else:
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home())
+        p = Path(base) / "iRC"
     p.mkdir(parents=True, exist_ok=True)
     return p
 

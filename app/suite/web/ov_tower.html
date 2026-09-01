@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>iRC · башня позиций</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Оверлей для OBS: фон прозрачный, размеры фиксированные —
+     масштабирует и позиционирует сам OBS. */
+  :root{
+    --surface:rgba(20,25,35,.92); --surface-2:rgba(27,34,48,.92);
+    --line:rgba(58,68,86,.5);
+    --fg:#EAEEF5; --dim:#9AA6B8; --light:#6B7689;
+    --accent:#FF5A1F; --live:#22C55E; --pit:#38BDF8; --warn:#F59E0B;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent}
+  body{font:13px/1.2 'Inter',system-ui,sans-serif;color:var(--fg);
+       padding:10px;width:360px}
+
+  .tower{border-radius:10px;overflow:hidden;
+         box-shadow:0 10px 34px -14px rgba(0,0,0,.75)}
+  .head{display:flex;align-items:center;gap:8px;padding:7px 10px;
+        background:var(--accent);color:#fff;
+        font-family:'Rubik','Inter',sans-serif;font-weight:700;font-size:12px;
+        letter-spacing:.5px;text-transform:uppercase}
+  .head .track{margin-left:auto;font-weight:500;opacity:.9;
+               text-transform:none;letter-spacing:0}
+
+  .row{display:grid;grid-template-columns:26px 34px 1fr auto;align-items:center;
+       gap:8px;padding:5px 10px;background:var(--surface);
+       border-top:1px solid var(--line)}
+  .row:nth-child(even){background:var(--surface-2)}
+  .row.pit{background:rgba(56,189,248,.16)}
+  .row.focus{box-shadow:inset 3px 0 0 var(--accent)}
+
+  .pos{font-family:'Rubik',sans-serif;font-weight:700;font-size:13px;
+       text-align:center;color:var(--fg)}
+  .num{font-family:'Rubik',sans-serif;font-weight:700;font-size:11px;
+       text-align:center;padding:2px 0;border-radius:4px;
+       background:rgba(255,255,255,.09);color:var(--fg)}
+  .name{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}
+  .gap{font-variant-numeric:tabular-nums;font-size:12px;color:var(--dim);
+       text-align:right;min-width:52px}
+  .gap.leader{color:var(--live);font-weight:600}
+  .tag{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+       padding:1px 5px;border-radius:4px;margin-left:6px}
+  .tag.pit{background:rgba(56,189,248,.2);color:var(--pit)}
+  .tag.stops{background:rgba(255,255,255,.1);color:var(--dim)}
+  .foot{padding:5px 10px;background:var(--surface);border-top:1px solid var(--line);
+        color:var(--light);font-size:10.5px;display:flex;gap:10px}
+  .off{padding:14px 10px;background:var(--surface);color:var(--dim);
+       text-align:center;font-size:12px;border-radius:10px}
+</style>
+</head>
+<body>
+<div id="root"><div class="off">ожидание сессии iRacing…</div></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let cfg = {gap_mode:'leader'};
+
+function fmtGap(row, rows, mode){
+  if(row.position === 1) return 'лидер';
+  if(row.gap <= 0) return '—';
+  if(mode === 'ahead'){
+    // F2Time отдаёт отставание в том виде, в каком его считает сим;
+    // до идущего впереди берём как разницу соседних значений
+    const prev = rows.find(r => r.position === row.position - 1);
+    const d = prev ? Math.max(0, row.gap - prev.gap) : row.gap;
+    return '+' + d.toFixed(1);
+  }
+  return '+' + row.gap.toFixed(1);
+}
+
+function render(data){
+  if(!data || !data.rows || !data.rows.length){
+    $('#root').innerHTML = '<div class="off">ожидание сессии iRacing…</div>';
+    return;
+  }
+  const rows = data.rows;
+  const title = data.title || 'позиции';
+  const html = rows.map(r => {
+    const cls = ['row', r.on_pit || r.in_pit_stall ? 'pit' : '',
+                 cfg.focus_car && r.car_number === cfg.focus_car ? 'focus' : ''].join(' ');
+    const gap = fmtGap(r, rows, data.gap_mode);
+    const tags = [
+      (r.on_pit || r.in_pit_stall) ? '<span class="tag pit">пит</span>' : '',
+      (data.show_pits && r.pit_stops) ? `<span class="tag stops">${r.pit_stops}×</span>` : '',
+    ].join('');
+    return `<div class="${cls}">
+      <div class="pos">${r.position}</div>
+      <div class="num">${r.car_number}</div>
+      <div class="name">${r.name}${tags}</div>
+      <div class="gap ${r.position===1?'leader':''}">${gap}</div>
+    </div>`;
+  }).join('');
+
+  $('#root').innerHTML = `<div class="tower">
+    <div class="head">${title}<span class="track">${data.track || ''}</span></div>
+    ${html}
+    <div class="foot"><span>машин: ${data.total}</span>
+      ${data.mode === 'REPLAY' ? '<span>повтор</span>' : ''}</div>
+  </div>`;
+}
+
+async function pull(){
+  try{
+    const d = await (await fetch('/api/broadcast/tower')).json();
+    cfg = d;
+    render(d);
+  }catch(e){}
+}
+pull();
+setInterval(pull, 400);
+</script>
+</body>
+</html>
