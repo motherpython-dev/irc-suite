@@ -107,7 +107,25 @@ class BroadcastModule:
         self._thread = threading.Thread(target=self._loop, daemon=True,
                                         name="broadcast")
         self._thread.start()
+
+        # Окна поднимаем здесь, а не в точке входа: модуль включают и выключают
+        # на лету, и при повторном включении окна иначе не появлялись.
+        # Tk живёт в главном потоке, а start() зовут из трея или HTTP —
+        # поэтому через очередь хоста.
+        from ...core.ui import host
+        if host.is_running():
+            host.call(self._build_ui)
         ctx.log.info("оверлеи трансляции запущены")
+
+    def _build_ui(self) -> None:
+        from ...core.ui import host
+        root = host.root()
+        if self.ctx is None:
+            return                     # модуль успели выключить
+        if self.ctx.config.get("deck_enabled", True) and not self.deck:
+            self.build_deck(root)
+        if not self.windows:
+            self.build_windows(root)
 
     def stop(self) -> None:
         self._stop.set()
@@ -129,8 +147,8 @@ class BroadcastModule:
         self.windows: dict = {}
 
     def wants_main_thread(self) -> bool:
-        """Пульту нужен главный поток: он окно Tk поверх сима."""
-        return bool(self.ctx and self.ctx.config.get("deck_enabled", True))
+        """Окнам нужен главный поток: они Tk поверх сима."""
+        return bool(self.ctx)
 
     def build_deck(self, host_root=None):
         from .deck import BroadcastDeck

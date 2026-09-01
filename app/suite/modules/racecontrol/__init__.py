@@ -41,9 +41,19 @@ class RaceControlModule:
         self.detector.on_incident = self._incident_pushed
         self.detector.start()
 
-        # Оверлей живёт в главном потоке: Tk из фонового потока работать
-        # не обязан. Ядро отдаёт ему главный поток после старта модулей.
+        # Оверлей создаём здесь, а не в точке входа: иначе при повторном
+        # включении модуля окно не появлялось. Tk живёт в главном потоке,
+        # а start() зовут из трея или HTTP — поэтому через очередь хоста.
+        from ...core.ui import host
+        if host.is_running() and cfg.get("overlay_enabled", True):
+            host.call(self._build_ui)
         ctx.log.info("рейс-контрол запущен")
+
+    def _build_ui(self) -> None:
+        from ...core.ui import host
+        if self.ctx is None or self.overlay:
+            return
+        self.build_overlay(host.root())
 
     def stop(self) -> None:
         if self.detector:

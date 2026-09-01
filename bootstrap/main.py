@@ -105,17 +105,12 @@ def main() -> int:
         # Tk обязан жить в главном потоке, поэтому трей уходит в фон
         tray.run_detached()
 
+        # Окна модулей создаются в их же start() через очередь Tk-хоста,
+        # поэтому здесь ничего поднимать не нужно: иначе при выключении и
+        # повторном включении модуля окна больше не появлялись.
         rc = app.module("racecontrol")
-        if rc and getattr(rc, "ctx", None) and rc.wants_main_thread():
-            overlay = rc.build_overlay(host.root())
-            tray.overlay = overlay
-            log.info("оверлей рейс-контрола запущен")
-
-        bc = app.module("broadcast")
-        if bc and getattr(bc, "ctx", None) and bc.wants_main_thread():
-            bc.build_deck(host.root())
-            bc.build_windows(host.root())
-            log.info("пульт трансляции и оверлеи запущены")
+        if rc:
+            tray.overlay = getattr(rc, "overlay", None)
 
         host.run()                    # блокирует до выхода из трея
         return 0
