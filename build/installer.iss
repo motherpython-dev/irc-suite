@@ -4,7 +4,7 @@
 
 #define AppName        "iRC"
 #define AppShortName   "iRC"
-#define AppVersion     "2.3.0"
+#define AppVersion     "2.4.1"
 #define AppPublisher   "iRChamps"
 #define AppExe         "iRC.exe"
 
@@ -63,6 +63,7 @@ begin
   Exec('taskkill.exe', '/F /IM {#AppExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := True;
 end;
+
 
 
 

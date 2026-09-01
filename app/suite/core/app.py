@@ -168,8 +168,11 @@ class Application:
 
     # ---------- жизненный цикл ----------
 
-    def open_panel(self) -> None:
-        webbrowser.open(self.server.url)
+    def open_panel(self, path: str = "") -> None:
+        """Панель открывается окном приложения, а не вкладкой браузера."""
+        from .ui.panel_window import open_panel as open_window
+        url = self.server.url.rstrip("/") + (path or "/")
+        open_window(url, profile_dir=config.data_dir() / "panel-profile")
 
     def start(self) -> None:
         self.server.start()

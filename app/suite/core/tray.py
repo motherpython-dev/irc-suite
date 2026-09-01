@@ -65,8 +65,17 @@ class Tray:
 
     def _menu(self) -> pystray.Menu:
         items = [pystray.MenuItem("Открыть панель", lambda: self.app.open_panel(),
-                                  default=True),
-                 pystray.Menu.SEPARATOR]
+                                  default=True)]
+        if self._is_on("broadcast"):
+            # оверлеи трансляции живут в OBS, но посмотреть их удобно и так
+            items.append(pystray.MenuItem("Оверлеи трансляции", pystray.Menu(
+                *[pystray.MenuItem(title, (lambda u: lambda: self.app.open_panel(u))(url))
+                  for title, url in (("Башня позиций", "/ov/tower"),
+                                     ("Стартовая решётка", "/ov/grid"),
+                                     ("Комментаторы", "/ov/commentators"),
+                                     ("Дельта пилотов", "/ov/delta"),
+                                     ("Пит-стопы", "/ov/pits"))])))
+        items.append(pystray.Menu.SEPARATOR)
         for st in self.app.registry.statuses():
             mid = st["id"]
             items.append(pystray.MenuItem(
