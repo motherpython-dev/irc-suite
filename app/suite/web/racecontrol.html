@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ichamps Race Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Токены ichamps — static/css/racing.css, тема data-theme="dark" */
+  :root{
+    --bg:#0B0E14; --surface:#141923; --surface-2:#1B2230; --surface-3:#232C3D;
+    --line:#28303F; --line-strong:#3A4456;
+    --fg:#EAEEF5; --dim:#9AA6B8; --light:#6B7689;
+    --accent:#FF5A1F; --accent-hover:#E14A12;
+    --live:#22C55E; --replay:#F59E0B; --off:#6B7689;
+    --est:#A78BFA; --hit:#EF4444; --offtrack:#38BDF8;
+    --radius:.75rem; --shadow:0 8px 30px -12px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:14px/1.45 'Inter','Manrope','Segoe UI',system-ui,sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:10px 16px;
+         background:var(--surface);border-bottom:1px solid var(--line);
+         position:sticky;top:0;z-index:5}
+  .brand{font-family:'Rubik','Inter',sans-serif;font-weight:700;letter-spacing:.4px;display:flex;align-items:center;gap:.55rem}
+  .brand .sq{display:grid;place-items:center;width:1.75rem;height:1.75rem;border-radius:.6rem;background:var(--accent);color:#fff;font-size:.8rem}
+  .brand span{color:var(--accent)}
+  .mode{padding:3px 10px;border-radius:999px;font-weight:600;font-size:12px;
+        text-transform:uppercase;letter-spacing:.6px}
+  .mode.LIVE{background:rgba(34,197,94,.14);color:var(--live);
+             box-shadow:inset 0 0 0 1px rgba(34,197,94,.38)}
+  .mode.REPLAY{background:rgba(245,158,11,.14);color:var(--replay);
+               box-shadow:inset 0 0 0 1px rgba(245,158,11,.38)}
+  .mode.OFFLINE{background:rgba(107,118,137,.14);color:var(--off);
+                box-shadow:inset 0 0 0 1px rgba(107,118,137,.38)}
+  .meta{color:var(--dim);font-size:12px;display:flex;gap:14px;flex-wrap:wrap}
+  .spacer{flex:1}
+  button{background:var(--surface-2);color:var(--fg);border:1px solid var(--line);
+         border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px}
+  button:hover{background:var(--surface-3)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);
+                 font-weight:600}
+  button.primary:hover{filter:brightness(1.1)}
+  .flags{display:flex;align-items:center;gap:8px;padding:10px 16px;
+         background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .flags .lbl{color:var(--dim);font-size:12px}
+  .flags b{min-width:18px;text-align:center}
+  .flags input{width:150px;background:var(--surface-2);color:var(--fg);
+               border:1px solid var(--line);border-radius:8px;padding:6px 8px;
+               text-align:center;font-weight:700;font-family:inherit}
+  .flags .sep{flex:1}
+  button.warn{color:var(--replay);border-color:rgba(245,158,11,.4);font-weight:700}
+  button.warn:hover{background:rgba(245,158,11,.14)}
+  .banner{display:none;padding:8px 16px;background:rgba(245,158,11,.12);
+          border-bottom:1px solid rgba(245,158,11,.3);color:var(--replay);font-size:13px}
+  .banner.show{display:flex;align-items:center;gap:12px}
+  main{padding:16px;max-width:1100px;margin:0 auto}
+  .empty{color:var(--dim);text-align:center;padding:60px 20px}
+  .card{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+        background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--hit);
+        border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;cursor:pointer}
+  .card:hover{border-color:var(--line-strong);background:var(--surface-3)}
+  .card.est{border-left-color:var(--est)}
+  .card.offtrack{border-left-color:var(--offtrack)}
+  .tag.o{background:rgba(56,189,248,.14);color:var(--offtrack)}
+  .tag.q{background:rgba(107,118,137,.14);color:var(--light)}
+  .card.reviewed{opacity:.5}
+  .num{font-family:'Rubik','Inter',sans-serif;font-weight:700;font-size:18px;min-width:46px;text-align:center;
+       background:var(--surface-3);border-radius:.5rem;padding:6px 4px}
+  .who{font-weight:600}
+  .sub{color:var(--dim);font-size:12px;margin-top:2px}
+  .tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;
+       font-weight:600;margin-left:6px}
+  .tag.x{background:rgba(239,68,68,.14);color:var(--hit)}
+  .tag.e{background:rgba(167,139,250,.14);color:var(--est)}
+  .actions{display:flex;gap:6px}
+  footer{color:var(--dim);font-size:11px;text-align:center;padding:20px}
+  #toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;
+          gap:8px;z-index:20}
+  .toast{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+         border-radius:6px;padding:10px 14px;max-width:340px;font-size:13px;
+         box-shadow:0 6px 20px rgba(0,0,0,.45);animation:in .15s ease-out}
+  .toast.err{border-left-color:var(--hit)}
+  .toast.ok{border-left-color:var(--live)}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="brand" style="text-decoration:none;color:inherit"><span class="sq">iC</span>ichamps <span>Race Control</span></a>
+  <div class="mode OFFLINE" id="mode">offline</div>
+  <div class="meta">
+    <span id="track">—</span>
+    <span id="clock">—</span>
+    <span id="frames"></span>
+  </div>
+  <div class="spacer"></div>
+  <button id="btn-siminc" title="Прыжок по маркерам инцидентов самого iRacing">Маркер iR →</button>
+  <button id="btn-camera" title="Камера на инцидент по мнению сима">Камера на инцидент</button>
+  <button class="primary" id="btn-live">К LIVE</button>
+</header>
+
+<div class="flags">
+  <button class="warn" id="f-yellow">ЖЁЛТЫЙ</button>
+  <span class="lbl">круги под жёлтым:</span>
+  <button id="f-lap-minus">−</button>
+  <b id="f-pace">2</b>
+  <button id="f-lap-plus">+</button>
+  <span class="sep"></span>
+  <span class="lbl">#</span>
+  <input id="f-car" list="drivers" placeholder="номер или фамилия" autocomplete="off">
+  <datalist id="drivers"></datalist>
+  <button id="f-dt">DT</button>
+  <button id="f-sec">+5с</button>
+  <button id="f-clear">Снять ЧФ</button>
+</div>
+
+<div class="banner" id="banner">
+  <b>РЕЖИМ ПОВТОРА</b>
+  <span>контекст «кто рядом» не пишется · новых инцидентов за это время:
+        <b id="missed">0</b></span>
+</div>
+
+<main>
+  <div id="list"></div>
+  <div class="empty" id="empty">Инцидентов пока нет.<br>
+    <span id="empty-hint">Клиент ждёт сессию iRacing.</span></div>
+</main>
+
+<footer id="ver">—</footer>
+<div id="toasts"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let incidents = [];
+
+function fmtTime(s){
+  s = Math.max(0, s|0);
+  const h = String((s/3600|0)).padStart(2,'0');
+  const m = String((s%3600/60|0)).padStart(2,'0');
+  const x = String(s%60).padStart(2,'0');
+  return `${h}:${m}:${x}`;
+}
+
+function renderState(st){
+  const m = $('#mode');
+  m.className = 'mode ' + st.mode;
+  m.textContent = st.mode;
+  $('#track').textContent = st.track || '—';
+  $('#clock').textContent = 'сессия ' + fmtTime(st.session_time) +
+                            (st.session_time_estimated ? ' (оценочно)' : '');
+  $('#frames').textContent = st.mode === 'REPLAY'
+      ? `назад по ленте: ${st.replay_frames_to_end} кадров` : '';
+  $('#banner').classList.toggle('show', st.mode === 'REPLAY');
+  const hint = $('#empty-hint');
+  if(hint) hint.textContent = !st.connected ? 'Клиент ждёт сессию iRacing.'
+      : st.results_available ? 'Сессия идёт, поле под наблюдением.'
+      : `Тест-драйв: видны только свои инциденты (сейчас ${st.player_incidents||0}x).`;
+  $('#missed').textContent = st.missed_in_replay ?? 0;
+  if(st.pace_laps !== undefined) $('#f-pace').textContent = st.pace_laps;
+  $('#ver').textContent = `v${st.version} · ` +
+      (st.connected ? (st.results_available ? 'сим подключён, видно всё поле'
+                                            : 'тест-драйв: только свои инциденты')
+                    : 'сим не найден');
+}
+
+function renderList(){
+  $('#empty').style.display = incidents.length ? 'none' : 'block';
+  $('#list').innerHTML = incidents.map(i => `
+    <div class="card ${i.kind==='offtrack'?'offtrack':''} ${i.estimated?'est':''} ${i.reviewed?'reviewed':''}" data-id="${i.id}">
+      <div class="num">#${i.car_number}</div>
+      <div>
+        <div class="who">${i.driver_name}
+          ${i.kind==='offtrack' ? `<span class="tag o">вне трассы ${(i.duration||0).toFixed(0)}с</span>` : `<span class="tag x">+${i.inc_delta}x</span>`}
+          ${i.estimated?'<span class="tag e">оценочно</span>':''}
+        </div>
+        <div class="sub">
+          круг ${i.lap} · ${fmtTime(i.session_time)}
+          ${i.nearby.length?' · рядом: '+i.nearby.map(n=>'#'+n).join(', ')
+                           :' · рядом никого'}
+          ${i.kind==='offtrack'?'':'· всего '+i.inc_total+'x'}
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary act-show">Показать</button>
+        <button class="act-rev">${i.reviewed?'↺':'✓'}</button>
+      </div>
+    </div>`).join('');
+}
+
+function toast(text, kind){
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind||'');
+  el.textContent = text;
+  $('#toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 4000);
+}
+
+const ERRORS = {
+  sim_offline: 'iRacing не запущен или сессия не активна',
+  not_found:   'Инцидент не найден'
+};
+
+async function post(url, body){
+  let res;
+  try{
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify(body||{})});
+    res = await r.json();
+  }catch(e){
+    toast('Нет связи с клиентом — приложение закрыто?', 'err');
+    return {ok:false};
+  }
+  // broadcast в сим успешен всегда, поэтому молчаливый отказ недопустим:
+  // оператор должен видеть, почему команда не сработала
+  if(res && res.ok === false){
+    toast(res.message || ERRORS[res.error] || 'Команда не выполнена', 'err');
+  }
+  return res;
+}
+
+$('#list').addEventListener('click', async e => {
+  const card = e.target.closest('.card');
+  if(!card) return;
+  const id = +card.dataset.id;
+  if(e.target.classList.contains('act-rev')){
+    const inc = incidents.find(i=>i.id===id);
+    await post('/api/racecontrol/reviewed', {id, reviewed: !inc.reviewed});
+  } else {
+    const inc = incidents.find(i=>i.id===id);
+    $('#f-car').value = inc.car_number;
+    const r = await post('/api/racecontrol/show', {id});
+    if(r.ok) toast(`Повтор: #${inc.car_number}, круг ${inc.lap}` +
+                   (inc.estimated?' (якорь оценочный, отмотка с запасом)':''), 'ok');
+  }
+});
+
+$('#btn-live').onclick   = () => post('/api/racecontrol/live');
+
+// --- флаги и штрафы ---
+function carNumber(){
+  // поле принимает и «24», и «24 · Иванов», и фамилию — берём номер
+  const v = $('#f-car').value.trim();
+  if(v.includes(' · ')) return v.split(' · ')[0].replace('#','').trim();
+  const byNum = drivers.find(d => d.car_number.toLowerCase() === v.toLowerCase().replace('#',''));
+  if(byNum) return byNum.car_number;
+  const byName = drivers.find(d => d.name.toLowerCase().includes(v.toLowerCase()));
+  return byName ? byName.car_number : v.replace('#','');
+}
+
+let drivers = [];
+async function loadDrivers(){
+  try{
+    drivers = await (await fetch('/api/drivers')).json();
+    $('#drivers').innerHTML = drivers.map(d =>
+      `<option value="${d.car_number} · ${d.name}">`).join('');
+  }catch(e){ drivers = []; }
+}
+loadDrivers();
+setInterval(loadDrivers, 30000);
+
+async function flag(action, extra){
+  const body = Object.assign({action, car: carNumber()}, extra || {});
+  const r = await post('/api/racecontrol/flag', body);
+  if(r.ok){
+    if(r.pace_laps !== undefined) $('#f-pace').textContent = r.pace_laps;
+    toast('Команда отправлена', 'ok');
+  }
+  return r;
+}
+let pending = null;
+function penalty(action, label){
+  // штраф в живой гонке не отменить — требуем второй клик
+  const car = carNumber();
+  if(!car){ toast('Укажите номер машины или фамилию', 'err'); return; }
+  const key = action + car;
+  if(pending !== key){
+    pending = key;
+    toast(`Ещё раз — подтвердить ${label} для #${car}`, 'err');
+    setTimeout(()=>{ if(pending===key) pending=null; }, 4000);
+    return;
+  }
+  pending = null;
+  flag(action, {seconds: 5});
+}
+$('#f-yellow').onclick    = () => flag('yellow');
+$('#f-lap-minus').onclick = () => flag('pace_laps', {delta:-1});
+$('#f-lap-plus').onclick  = () => flag('pace_laps', {delta: 1});
+$('#f-dt').onclick        = () => penalty('drive_through', 'DT');
+$('#f-sec').onclick       = () => penalty('time_penalty', '+5с');
+$('#f-clear').onclick     = () => flag('clear');
+$('#btn-siminc').onclick = () => post('/api/racecontrol/command', {name:'jump_sim_incident', forward:true});
+$('#btn-camera').onclick = () => post('/api/racecontrol/command', {name:'cam_at_incident'});
+
+const es = new EventSource('/api/stream');
+es.addEventListener('state',     e => renderState(JSON.parse(e.data)));
+es.addEventListener('incidents', e => { incidents = JSON.parse(e.data); renderList(); });
+
+fetch('/api/state').then(r=>r.json()).then(renderState);
+fetch('/api/racecontrol/incidents').then(r=>r.json()).then(d=>{incidents=d;renderList();});
+</script>
+</body>
+</html>
