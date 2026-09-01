@@ -77,17 +77,17 @@ class Tray:
                                      ("Пит-стопы", "/ov/pits"))])))
         windows = []
         rc = self.app.module("racecontrol")
-        if rc and getattr(rc, "overlay", None):
+        if rc and getattr(rc, "ctx", None):
             windows.append(pystray.MenuItem(
                 "Оверлей рейс-контроля",
-                lambda: rc.overlay.request_toggle(),
+                lambda: rc.set_overlay(not rc.overlay_visible()),
                 checked=lambda _: rc.overlay_visible()))
         bc = self.app.module("broadcast")
-        if bc and getattr(bc, "deck", None):
+        if bc and getattr(bc, "ctx", None):
             windows.append(pystray.MenuItem(
                 "Пульт эфира",
-                lambda: bc.deck.toggle(),
-                checked=lambda _: bool(bc.deck and bc.deck.visible)))
+                lambda: bc.show_deck(not bc.deck_visible()),
+                checked=lambda _: bc.deck_visible()))
         if windows:
             items.append(pystray.Menu.SEPARATOR)
             items.extend(windows)

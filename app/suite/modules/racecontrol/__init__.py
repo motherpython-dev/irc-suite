@@ -41,19 +41,9 @@ class RaceControlModule:
         self.detector.on_incident = self._incident_pushed
         self.detector.start()
 
-        # Оверлей создаём здесь, а не в точке входа: иначе при повторном
-        # включении модуля окно не появлялось. Tk живёт в главном потоке,
-        # а start() зовут из трея или HTTP — поэтому через очередь хоста.
-        from ...core.ui import host
-        if host.is_running() and cfg.get("overlay_enabled", True):
-            host.call(self._build_ui)
-        ctx.log.info("рейс-контрол запущен")
-
-    def _build_ui(self) -> None:
-        from ...core.ui import host
-        if self.ctx is None or self.overlay:
-            return
-        self.build_overlay(host.root())
+        # Окно НЕ создаём: при старте на экране только главное окно,
+        # оверлей включается из панели или из трея.
+        ctx.log.info("рейс-контрол запущен (оверлей по требованию)")
 
     def stop(self) -> None:
         if self.detector:
@@ -75,10 +65,6 @@ class RaceControlModule:
             "missed_in_replay": self.detector.missed_in_replay if self.detector else 0,
         }
 
-    def wants_main_thread(self) -> bool:
-        """Оверлею нужен главный поток (Tk). Ядро спрашивает об этом при старте."""
-        return bool(self.ctx and self.ctx.config.get("overlay_enabled", True))
-
     def build_overlay(self, host_root=None):
         from .overlay import Overlay
         self.overlay = Overlay(self, host_root)
@@ -92,14 +78,26 @@ class RaceControlModule:
     def set_overlay(self, visible: bool) -> dict:
         """Показать или убрать окно поверх сима.
 
-        Tk не потокобезопасен, а команда приходит из HTTP-потока или из трея,
-        поэтому переключение уходит в очередь главного потока.
+        Окно создаётся при первом показе. Tk не потокобезопасен, а команда
+        приходит из HTTP или из трея, поэтому всё уходит в очередь главного
+        потока.
         """
-        if not self.overlay:
-            return {"ok": False, "error": "no_overlay",
-                    "message": "Оверлей выключен в настройках модуля"}
-        self.overlay.request_visible(bool(visible))
-        return {"ok": True, "visible": bool(visible)}
+        from ...core.ui import host
+        if not visible:
+            if self.overlay:
+                self.overlay.request_visible(False)
+            return {"ok": True, "visible": False}
+        if not host.is_running():
+            return {"ok": False, "error": "no_ui",
+                    "message": "Интерфейс не запущен"}
+
+        def make():
+            if self.overlay is None:
+                self.build_overlay(host.root())
+            self.overlay.show()
+
+        host.call(make)
+        return {"ok": True, "visible": True}
 
     # ---------- данные ----------
 

@@ -108,24 +108,55 @@ class BroadcastModule:
                                         name="broadcast")
         self._thread.start()
 
-        # Окна поднимаем здесь, а не в точке входа: модуль включают и выключают
-        # на лету, и при повторном включении окна иначе не появлялись.
-        # Tk живёт в главном потоке, а start() зовут из трея или HTTP —
-        # поэтому через очередь хоста.
-        from ...core.ui import host
-        if host.is_running():
-            host.call(self._build_ui)
-        ctx.log.info("оверлеи трансляции запущены")
+        # Окна НЕ создаём: при старте приложения на экране должно быть только
+        # главное окно. Оверлеи и пульт появляются, когда их включают.
+        ctx.log.info("оверлеи трансляции запущены (окна по требованию)")
 
-    def _build_ui(self) -> None:
+    def _ensure_window(self, overlay_id: str):
+        """Создать окно оверлея при первом показе.
+
+        Tk живёт в главном потоке, а команда приходит из HTTP или трея,
+        поэтому создание уходит в очередь хоста и выполняется там же.
+        """
         from ...core.ui import host
-        root = host.root()
-        if self.ctx is None:
-            return                     # модуль успели выключить
-        if self.ctx.config.get("deck_enabled", True) and not self.deck:
-            self.build_deck(root)
-        if not self.windows:
-            self.build_windows(root)
+        from .windows import WINDOWS
+        if overlay_id in self.windows or overlay_id not in WINDOWS:
+            return
+        if not host.is_running():
+            return
+
+        def make():
+            if self.ctx is None or overlay_id in self.windows:
+                return
+            try:
+                w = WINDOWS[overlay_id](self, host.root(), config_key=overlay_id)
+                self.windows[overlay_id] = w
+                w.set_visible(self.is_visible(overlay_id))
+            except Exception:
+                self.ctx.log.exception("окно оверлея %s не создалось", overlay_id)
+
+        host.call(make)
+
+    def show_deck(self, visible: bool) -> dict:
+        """Пульт эфира — тоже по требованию, не при старте."""
+        from ...core.ui import host
+        if not visible:
+            if self.deck:
+                host.call(self.deck.hide)
+            return {"ok": True, "visible": False}
+        if not host.is_running():
+            return {"ok": False, "error": "no_ui"}
+
+        def make():
+            if self.deck is None:
+                self.build_deck(host.root())
+            self.deck.show()
+
+        host.call(make)
+        return {"ok": True, "visible": True}
+
+    def deck_visible(self) -> bool:
+        return bool(self.deck and self.deck.visible)
 
     def stop(self) -> None:
         self._stop.set()
@@ -146,9 +177,7 @@ class BroadcastModule:
             self.deck = None
         self.windows: dict = {}
 
-    def wants_main_thread(self) -> bool:
-        """Окнам нужен главный поток: они Tk поверх сима."""
-        return bool(self.ctx)
+
 
     def build_deck(self, host_root=None):
         from .deck import BroadcastDeck
@@ -174,6 +203,7 @@ class BroadcastModule:
 
     def status(self) -> dict:
         return {"cars": len(self._rows),
+                "deck_visible": self.deck_visible(),
                 "overlays": [{"id": i, "title": t, "visible": self.is_visible(i)}
                              for i, t in OVERLAYS]}
 
@@ -183,12 +213,9 @@ class BroadcastModule:
         return self.ctx.config.setdefault("visible", {})
 
     def is_visible(self, overlay_id: str) -> bool:
-        """По умолчанию скрыто: графика выводится по решению режиссёра.
-
-        Исключение — башня: её обычно держат постоянно, и «пустой эфир при
-        первом запуске» удивил бы сильнее, чем лишняя строка на экране.
-        """
-        return bool(self._vis().get(overlay_id, overlay_id == "tower"))
+        """По умолчанию скрыто: после запуска экран чистый, графику выводит
+        режиссёр."""
+        return bool(self._vis().get(overlay_id, False))
 
     def set_visible(self, overlay_id: str, visible: bool) -> dict:
         if overlay_id not in dict(OVERLAYS):
@@ -198,9 +225,12 @@ class BroadcastModule:
         if overlay_id == "commentators":
             self.ctx.config["comm_visible"] = bool(visible)
         self.ctx.save_config()
+        if visible:
+            self._ensure_window(overlay_id)
         w = self.windows.get(overlay_id)
         if w:
-            w.set_visible(bool(visible))
+            from ...core.ui import host
+            host.call(lambda: w.set_visible(bool(visible)))
         self.ctx.publish("overlays", self.visibility())
         return {"ok": True, **self.visibility()}
 
@@ -424,6 +454,8 @@ class BroadcastModule:
             "GET /api/broadcast/delta": lambda r: self.delta(),
             "GET /api/broadcast/pits": lambda r: self.pits(),
             "GET /api/broadcast/visibility": lambda r: self.visibility(),
+            "POST /api/broadcast/deck":
+                lambda r: self.show_deck(bool(body(r).get("visible"))),
             "POST /api/broadcast/visibility":
                 lambda r: (lambda b: self.set_visible(str(b.get("id", "")),
                                                       bool(b.get("visible"))))(body(r)),

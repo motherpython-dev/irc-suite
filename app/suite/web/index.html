@@ -277,10 +277,13 @@ function renderView(){
             поверх сима, окном на втором мониторе или с телефона.</div>
           <div style="height:10px"></div>
           <div class="ovrow">
-            <div class="ovname">Пульт (окно/телефон)</div>
-            <code>/deck</code>
-            <button onclick="copyUrl('','deck')">копировать</button>
-            <button onclick="window.open('/deck','_blank')">открыть</button>
+            <div class="sw ${st.deck_visible?'on':''}" data-deck="1"></div>
+            <div class="ovname">Пульт поверх сима</div>
+            <div class="ovstate ${st.deck_visible?'live':''}">${
+              st.deck_visible?'показан':'скрыт'}</div>
+            <div class="spacer"></div>
+            <button class="mini" onclick="copyUrl('','deck')">адрес</button>
+            <button class="mini" onclick="window.open('/deck','_blank')">в браузере</button>
           </div>
           <div style="height:12px"></div>
           <div class="row">
@@ -380,8 +383,7 @@ function renderView(){
           <div>Инцидентов в ленте</div><div>${st.incidents ?? 0}</div>
           <div>Кругов под жёлтым</div><div>${st.pace_laps ?? '—'}</div>
           <div>Оверлей поверх сима</div><div>${
-            !st.overlay_available ? 'выключен в настройках'
-              : (st.overlay_visible ? 'показан' : 'скрыт')}</div>
+            st.overlay_visible ? 'показан' : 'скрыт'}</div>
         </div>
         <div style="height:14px"></div>
         <div class="row">
@@ -403,6 +405,14 @@ function renderView(){
 document.addEventListener('click', async e => {
   const nav = e.target.closest('.navitem');
   if(nav){ tab = nav.dataset.tab; renderNav(); renderView(); return; }
+  const dk = e.target.closest('.sw[data-deck]');
+  if(dk){
+    const on = dk.classList.contains('on');
+    await post('/api/broadcast/deck', {visible: !on});
+    toast(!on ? 'Пульт показан' : 'Пульт скрыт');
+    setTimeout(refresh, 300);
+    return;
+  }
   const ov = e.target.closest('.sw[data-ov]');
   if(ov){
     const id = ov.dataset.ov;
@@ -522,6 +532,10 @@ function apply(st){
   // чтобы вкладка могла рисовать переключатели
   const bc = (st.modules || []).find(m => m.id === 'broadcast');
   st.overlays = (bc && bc.overlays) || [];
+  st.deck_visible = !!(bc && bc.deck_visible);
+  const rcm = (st.modules || []).find(m => m.id === 'racecontrol');
+  st.overlay_visible = !!(rcm && rcm.overlay_visible);
+  st.overlay_available = !!(rcm && rcm.overlay_available);
   state = st; renderHeader(st); renderNav(); renderView();
 }
 async function refresh(){
