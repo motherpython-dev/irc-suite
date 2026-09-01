@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
 
 class Hub:
@@ -134,6 +135,8 @@ def make_handler(api: Api, hub: Hub, dynamic=None):
                 return
             if p in ("/", "/index.html"):
                 return self._file(WEB_DIR / "index.html", "text/html; charset=utf-8")
+            if p == "/assets/logo.png":
+                return self._file(ASSETS_DIR / "logo-irc.png", "image/png")
             if p == "/racecontrol":
                 return self._file(WEB_DIR / "racecontrol.html", "text/html; charset=utf-8")
             if p == "/api/state":

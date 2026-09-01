@@ -19,7 +19,7 @@ from .simclient import MODE_LIVE, MODE_REPLAY, SimClient
 from .storage import SQLiteStorage
 from .version import VERSION
 
-log = logging.getLogger("suite")
+log = logging.getLogger("irc")
 
 
 class Application:

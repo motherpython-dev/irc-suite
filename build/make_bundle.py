@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "app"
 OUT = ROOT / "dist" / "bundles"
 
-BASE_URL = "https://updates.ichamps.example/suite"   # заменить на реальный
+BASE_URL = "https://updates.ichamps.example/irc"   # заменить на реальный
 MIN_CORE = "2.0.0"
 
 EXCLUDE = {"__pycache__", ".pytest_cache", ".mypy_cache"}
@@ -35,7 +35,7 @@ def bump_version(version: str) -> None:
 
 def build(version: str) -> Path:
     OUT.mkdir(parents=True, exist_ok=True)
-    zpath = OUT / f"suite-{version}.zip"
+    zpath = OUT / f"irc-{version}.zip"
     if zpath.exists():
         zpath.unlink()
 

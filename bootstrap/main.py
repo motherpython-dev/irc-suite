@@ -18,7 +18,7 @@ from .version import CORE_VERSION
 
 
 def _setup_logging() -> Path:
-    log = paths.data_dir() / "suite.log"
+    log = paths.data_dir() / "irc.log"
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",

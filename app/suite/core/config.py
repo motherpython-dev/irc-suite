@@ -13,8 +13,8 @@ import os
 import shutil
 from pathlib import Path
 
-APP_NAME = "ichamps-suite"
-APP_TITLE = "ichamps Suite"
+APP_NAME = "irc"
+APP_TITLE = "iRC"
 
 DEFAULTS = {
     "http_port": 8777,
@@ -76,18 +76,20 @@ DEFAULTS = {
 
 def data_dir() -> Path:
     base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-    p = Path(base) / "ichamps" / "suite"
+    p = Path(base) / "iRC"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
-def legacy_dir() -> Path:
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-    return Path(base) / "ichamps" / "racecontrol"
+def legacy_dirs() -> list[Path]:
+    """Папки прежних версий, откуда переносим данные при первом запуске iRC."""
+    base = Path(os.environ.get("LOCALAPPDATA") or str(Path.home()))
+    return [base / "ichamps" / "suite",          # промежуточная сборка Suite
+            base / "ichamps" / "racecontrol"]    # отдельный клиент рейс-контроля
 
 
 def db_path() -> Path:
-    return data_dir() / "suite.sqlite3"
+    return data_dir() / "irc.sqlite3"
 
 
 def config_path() -> Path:
@@ -95,7 +97,7 @@ def config_path() -> Path:
 
 
 def log_path() -> Path:
-    return data_dir() / "suite.log"
+    return data_dir() / "irc.log"
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -115,19 +117,29 @@ def migrate_from_racecontrol() -> str:
     Старую папку НЕ удаляем: там история инцидентов, и пользователь может
     ещё вернуться на прежний клиент.
     """
-    src, dst = legacy_dir(), data_dir()
-    if not src.is_dir() or (dst / ".migrated").exists():
+    dst = data_dir()
+    if (dst / ".migrated").exists():
+        return ""
+    src = next((d for d in legacy_dirs() if d.is_dir()), None)
+    if src is None:
         return ""
     moved = []
     try:
-        old_db = src / "racecontrol.sqlite3"
-        if old_db.exists() and not db_path().exists():
+        old_db = next((src / n for n in ("suite.sqlite3", "racecontrol.sqlite3")
+                       if (src / n).exists()), None)
+        if old_db and not db_path().exists():
             shutil.copy2(old_db, db_path())
             moved.append("база инцидентов")
 
         old_cfg = src / "config.json"
         if old_cfg.exists() and not config_path().exists():
             old = json.loads(old_cfg.read_text("utf-8"))
+            if "modules" in old:
+                # конфиг Suite уже в нужной форме — переносим как есть
+                save(_deep_merge(json.loads(json.dumps(DEFAULTS)), old))
+                moved.append("настройки")
+                (dst / ".migrated").write_text("\n".join(moved), "utf-8")
+                return ", ".join(moved)
             # плоский конфиг рейс-контрола -> раздел modules.racecontrol
             cfg = dict(DEFAULTS)
             rc = dict(DEFAULTS["modules"]["racecontrol"])

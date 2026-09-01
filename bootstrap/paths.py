@@ -19,7 +19,7 @@ from pathlib import Path
 
 def data_dir() -> Path:
     base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-    p = Path(base) / "ichamps" / "suite"
+    p = Path(base) / "iRC"
     p.mkdir(parents=True, exist_ok=True)
     return p
 

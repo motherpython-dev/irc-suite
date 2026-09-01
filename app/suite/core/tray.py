@@ -57,7 +57,7 @@ class Tray:
         self.app = app
         self._mode = None
         self._stopped = threading.Event()
-        self.icon = pystray.Icon("ichamps-suite", _icon_for("OFFLINE"),
+        self.icon = pystray.Icon("irc", _icon_for("OFFLINE"),
                                  APP_TITLE, self._menu())
         app.on_module_change = self.refresh
 

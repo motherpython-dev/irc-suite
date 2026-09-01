@@ -43,7 +43,7 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name='ichamps-suite',
+    name='iRC',
     debug=False,
     strip=False,
     upx=False,
@@ -55,5 +55,5 @@ exe = EXE(
 coll = COLLECT(
     exe, a.binaries, a.datas,
     strip=False, upx=False,
-    name='ichamps-suite',
+    name='iRC',
 )

@@ -34,7 +34,7 @@ def start() -> tk.Tk:
         return _root
     _root = tk.Tk()
     _root.withdraw()
-    _root.title("ichamps Suite")
+    _root.title("iRC")
     _pump()
     return _root
 

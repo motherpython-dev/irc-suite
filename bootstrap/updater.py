@@ -7,7 +7,7 @@ min_core, и тогда пользователю показывается ссы
 Манифест на сервере:
 {
   "version":  "1.0.1",
-  "url":      "https://.../bundles/suite-1.0.1.zip",
+  "url":      "https://.../bundles/irc-1.0.1.zip",
   "sha256":   "…",
   "min_core": "1.0.0",
   "notes":    "что нового"

@@ -468,11 +468,15 @@ class RoundSelect(tk.Canvas):
 
 
 def load_logo(size: int = 22):
-    """Логотип ichamps из ассетов. Ищем и рядом с бандлом, и во временной
-    распаковке PyInstaller, и рядом с exe."""
+    """Логотип iRC из ассетов.
+
+    Знак горизонтальный, поэтому вписываем по ВЫСОТЕ: квадратный ресайз
+    сплющил бы его. Ищем и рядом с бандлом, и во временной распаковке
+    PyInstaller, и рядом с exe.
+    """
     import sys
     from pathlib import Path
-    names = ("icon.png", "logo.png", "icon.ico")
+    names = ("logo-irc.png", "icon.png", "logo.png", "icon.ico")
     bases = (Path(__file__).parent / "assets",
              Path(getattr(sys, "_MEIPASS", ".")) / "assets",
              Path(sys.executable).parent / "assets",
@@ -488,12 +492,12 @@ def load_logo(size: int = 22):
                 bbox = img.getbbox()
                 if bbox:
                     img = img.crop(bbox)
-                # пропорции сохраняем: логотип не квадратный после обрезки
-                # по содержимому, и resize в квадрат его сплющивал
-                img.thumbnail((size, size), Image.LANCZOS)
-                flat = Image.new("RGBA", (size, size), SURFACE)
-                flat.alpha_composite(img, ((size - img.width) // 2,
-                                           (size - img.height) // 2))
+                # вписываем по высоте, ширина — сколько получится
+                scale = size / img.height
+                img = img.resize((max(1, int(img.width * scale)), size),
+                                 Image.LANCZOS)
+                flat = Image.new("RGBA", img.size, SURFACE)
+                flat.alpha_composite(img)
                 return ImageTk.PhotoImage(flat.convert("RGB"))
             except Exception:
                 continue

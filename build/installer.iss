@@ -1,12 +1,12 @@
 ; Inno Setup — инсталлятор ichamps Race Control
 ; Компиляция:  "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build\installer.iss
-; Требует предварительной сборки PyInstaller (dist\ichamps-suite\).
+; Требует предварительной сборки PyInstaller (dist\iRC\).
 
-#define AppName        "ichamps Suite"
-#define AppShortName   "ichamps-suite"
-#define AppVersion     "2.0.0"
-#define AppPublisher   "ichamps"
-#define AppExe         "ichamps-suite.exe"
+#define AppName        "iRC"
+#define AppShortName   "iRC"
+#define AppVersion     "2.1.1"
+#define AppPublisher   "iRChamps"
+#define AppExe         "iRC.exe"
 
 [Setup]
 AppId={{2B7E4A91-6C3D-4F52-9A18-7D5E0C4B3A26}
@@ -38,7 +38,7 @@ Name: "desktopicon";  Description: "{cm:CreateDesktopIcon}"; GroupDescription: "
 Name: "startupicon";  Description: "Запускать вместе с Windows"; GroupDescription: "Автозапуск:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\ichamps-suite\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\iRC\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#AppName}";              Filename: "{app}\{#AppExe}"

@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
-SOURCES = ["logo.png", "icon.png", "logo.jpg", "icon.jpg"]
+SOURCES = ["logo-irc.png", "logo.png", "icon.png", "logo.jpg", "icon.jpg"]
 
 BG = (13, 17, 23, 255)
 ACCENT = (255, 139, 0, 255)      # оранжевый ichamps
@@ -51,14 +51,34 @@ def find_source() -> Image.Image | None:
 
 
 def square(img: Image.Image, pad_ratio: float = 0.04) -> Image.Image:
-    """Обрезать по содержимому, вписать в квадрат с небольшим полем."""
+    """Вписать логотип в квадрат.
+
+    Логотип iRC горизонтальный (625x248). Если просто добавить поля сверху и
+    снизу, в трее при 16 px он превратится в тонкую полоску. Поэтому широкие
+    логотипы кладём на скруглённую тёмную плитку — знак остаётся читаемым и на
+    светлом фоне панели задач, и на тёмном.
+    """
     bbox = img.getbbox()
     if bbox:
         img = img.crop(bbox)
-    pad = int(max(img.size) * pad_ratio)
-    side = max(img.size) + pad * 2
+
+    wide = img.width > img.height * 1.5
+    if not wide:
+        pad = int(max(img.size) * pad_ratio)
+        side = max(img.size) + pad * 2
+        canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        canvas.paste(img, ((side - img.width) // 2, (side - img.height) // 2), img)
+        return canvas
+
+    side = int(img.width * 1.18)
     canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    canvas.paste(img, ((side - img.width) // 2, (side - img.height) // 2), img)
+    d = ImageDraw.Draw(canvas)
+    d.rounded_rectangle([0, 0, side - 1, side - 1], radius=int(side * 0.22),
+                        fill=BG)
+    scale = (side * 0.82) / img.width
+    logo = img.resize((int(img.width * scale), int(img.height * scale)),
+                      Image.LANCZOS)
+    canvas.paste(logo, ((side - logo.width) // 2, (side - logo.height) // 2), logo)
     return canvas
 
 

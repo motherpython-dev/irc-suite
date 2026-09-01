@@ -1,4 +1,4 @@
-# ichamps Suite
+# iRC
 
 Одно приложение для организатора лиги. Модули включаются независимо и делят
 общие ресурсы: один клиент iRacing, один HTTP-сервер, один значок в трее.
@@ -11,7 +11,7 @@
 |---|---|
 | **Рейс-контрол** | работает: лента инцидентов, перемотка повтора, флаги и штрафы |
 | **Оверлеи трансляции** | в работе (этап 2) |
-| **RUTP** | внешний агент, Suite будет им управлять (этап 4) |
+| **RUTP** | внешний агент, iRC будет им управлять (этап 4) |
 | **Телеметрия** | позже (этап 5) |
 
 ## Запуск из исходников
@@ -26,7 +26,7 @@ python run.py
 
 ```
 python build/make_icon.py
-pyinstaller build/ichamps-suite.spec --noconfirm
+pyinstaller build/irc.spec --noconfirm
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build/installer.iss
 ```
 
@@ -49,7 +49,7 @@ app/suite/
         racecontrol/  инциденты, флаги, оверлей
         broadcast/    оверлеи трансляции (этап 2)
         rutp/         управление внешним агентом (этап 4)
-    web/              панель Suite и панель рейс-контроля
+    web/              панель iRC и панель рейс-контроля
 probe.py              диагностика допущений SDK
 audit.py              полнота детекта против маркеров iRacing
 ```
@@ -57,9 +57,9 @@ audit.py              полнота детекта против маркеро�
 ## Данные
 
 ```
-%LOCALAPPDATA%\ichamps\suite    suite.sqlite3   инциденты + append-only лог событий
+%LOCALAPPDATA%\ichamps\suite    irc.sqlite3   инциденты + append-only лог событий
     config.json     настройки, раздел на каждый модуль
-    suite.log       лог
+    irc.log       лог
     versions\       версии бандла
 ```
 
