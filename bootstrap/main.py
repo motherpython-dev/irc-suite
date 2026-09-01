@@ -114,7 +114,8 @@ def main() -> int:
         bc = app.module("broadcast")
         if bc and getattr(bc, "ctx", None) and bc.wants_main_thread():
             bc.build_deck(host.root())
-            log.info("пульт трансляции запущен")
+            bc.build_windows(host.root())
+            log.info("пульт трансляции и оверлеи запущены")
 
         host.run()                    # блокирует до выхода из трея
         return 0

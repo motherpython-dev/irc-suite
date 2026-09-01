@@ -255,8 +255,12 @@ function renderView(){
             ${st.started ? `<div class="spacer"></div><div class="state">машин в кадре: ${st.cars ?? 0}</div>` : ''}
           </div>
           <div style="height:14px"></div>
-          <div class="state">Добавь адрес в OBS как <b>browser source</b> — фон прозрачный,
-            размер и место задаёт сам OBS:</div>
+          <div class="state">Оверлеи выводятся <b>окнами поверх iRacing</b> — их
+            двигают мышью, а в эфир они попадают через захват экрана в OBS.
+            Показом управляет пульт.</div>
+          <div style="height:12px"></div>
+          <div class="state">Если OBS на другой машине, те же оверлеи доступны
+            страницами — добавь адрес как <b>browser source</b>:</div>
           <div style="height:8px"></div>
           ${links}
           <div style="height:16px"></div>

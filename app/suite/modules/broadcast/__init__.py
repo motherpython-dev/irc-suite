@@ -97,6 +97,7 @@ class BroadcastModule:
         self._subsession = None
         self._rows: list[dict] = []
         self.deck = None
+        self.windows: dict = {}
 
     # ---------- жизненный цикл ----------
 
@@ -113,12 +114,19 @@ class BroadcastModule:
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
+        for w in self.windows.values():
+            try:
+                w.stop()
+            except Exception:
+                pass
+        self.windows.clear()
         if self.deck:
             try:
                 self.deck.stop()
             except Exception:
                 pass
             self.deck = None
+        self.windows: dict = {}
 
     def wants_main_thread(self) -> bool:
         """Пульту нужен главный поток: он окно Tk поверх сима."""
@@ -128,6 +136,23 @@ class BroadcastModule:
         from .deck import BroadcastDeck
         self.deck = BroadcastDeck(self, host_root)
         return self.deck
+
+    def build_windows(self, host_root=None) -> dict:
+        """Оверлеи окнами поверх сима.
+
+        При одном мониторе OBS захватывает экран целиком, поэтому в эфир идёт
+        то же, что видит оператор. Браузерные страницы остаются для схемы с
+        двумя машинами, где OBS берёт их источником.
+        """
+        from .windows import WINDOWS
+        for oid, cls in WINDOWS.items():
+            try:
+                w = cls(self, host_root, config_key=oid)
+                w.set_visible(self.is_visible(oid))
+                self.windows[oid] = w
+            except Exception:
+                self.ctx.log.exception("окно оверлея %s не создалось", oid)
+        return self.windows
 
     def status(self) -> dict:
         return {"cars": len(self._rows),
@@ -155,6 +180,9 @@ class BroadcastModule:
         if overlay_id == "commentators":
             self.ctx.config["comm_visible"] = bool(visible)
         self.ctx.save_config()
+        w = self.windows.get(overlay_id)
+        if w:
+            w.set_visible(bool(visible))
         self.ctx.publish("overlays", self.visibility())
         return {"ok": True, **self.visibility()}
 
