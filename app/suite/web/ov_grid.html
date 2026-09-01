@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>iRC · стартовая решётка</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --surface:rgba(20,25,35,.92); --surface-2:rgba(27,34,48,.92);
+    --line:rgba(58,68,86,.5); --fg:#EAEEF5; --dim:#9AA6B8; --light:#6B7689;
+    --accent:#FF5A1F; --live:#22C55E;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent}
+  body{font:13px/1.2 'Inter',system-ui,sans-serif;color:var(--fg);padding:10px;width:640px}
+  .box{border-radius:10px;overflow:hidden;box-shadow:0 10px 34px -14px rgba(0,0,0,.75)}
+  .head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--accent);
+        color:#fff;font-family:'Rubik',sans-serif;font-weight:700;font-size:12px;
+        letter-spacing:.6px;text-transform:uppercase}
+  .head .track{margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0;opacity:.92}
+  /* решётка: нечётные слева, чётные справа — как на настоящем старте */
+  .grid{display:grid;grid-template-columns:1fr 1fr;background:var(--surface)}
+  .cell{display:grid;grid-template-columns:26px 32px 1fr auto;gap:8px;align-items:center;
+        padding:5px 10px;border-top:1px solid var(--line)}
+  .cell.even{background:var(--surface-2)}
+  .pos{font-family:'Rubik',sans-serif;font-weight:700;text-align:center}
+  .num{font-family:'Rubik',sans-serif;font-weight:700;font-size:11px;text-align:center;
+       padding:2px 0;border-radius:4px;background:rgba(255,255,255,.09)}
+  .name{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}
+  .t{font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--dim);text-align:right}
+  .t.pole{color:var(--live);font-weight:600}
+  .foot{padding:5px 12px;background:var(--surface);border-top:1px solid var(--line);
+        color:var(--light);font-size:10.5px}
+  .off{padding:14px;background:var(--surface);border-radius:10px;color:var(--dim);text-align:center}
+</style>
+</head>
+<body>
+<div id="root"><div class="off">ожидание результатов квалификации…</div></div>
+<script>
+function lap(t){
+  if(!t) return '—';
+  const m = Math.floor(t/60), s = (t%60).toFixed(3).padStart(6,'0');
+  return m ? `${m}:${s}` : s;
+}
+async function pull(){
+  try{
+    const d = await (await fetch('/api/broadcast/grid')).json();
+    if(!d.rows || !d.rows.length){
+      document.getElementById('root').innerHTML =
+        '<div class="off">ожидание результатов квалификации…</div>';
+      return;
+    }
+    const cells = d.rows.map((r,i) => `
+      <div class="cell ${i%2?'even':''}">
+        <div class="pos">${r.position}</div>
+        <div class="num">${r.car_number}</div>
+        <div class="name">${r.name}</div>
+        <div class="t ${i===0?'pole':''}">${i===0 ? lap(r.time)
+          : (r.delta ? '+'+r.delta.toFixed(3) : lap(r.time))}</div>
+      </div>`).join('');
+    document.getElementById('root').innerHTML = `<div class="box">
+      <div class="head">${d.title}<span class="track">${d.track||''}</span></div>
+      <div class="grid">${cells}</div>
+      <div class="foot">${d.source === 'qualifying'
+        ? 'по результатам квалификации'
+        : 'квалификации нет — показан текущий порядок'}</div>
+    </div>`;
+  }catch(e){}
+}
+pull(); setInterval(pull, 2000);
+</script>
+</body>
+</html>

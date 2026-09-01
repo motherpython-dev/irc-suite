@@ -160,13 +160,35 @@ class SQLiteStorage:
             self._migrate()
             self._conn.commit()
 
+    def _columns(self, table: str) -> set[str]:
+        return {r[1] for r in self._c().execute(f"PRAGMA table_info({table})")}
+
     def _migrate(self) -> None:
+        """Догнать схему до актуальной.
+
+        На ЧИСТОЙ базе таблицы уже создаются полными по SCHEMA, поэтому
+        миграции, добавляющие колонки, выполнять нельзя — SQLite ответит
+        `duplicate column name` и приложение не стартует. Поэтому каждая
+        миграция сначала проверяется на применимость и, если её работа уже
+        сделана, просто помечается выполненной.
+        """
         c = self._c()
         c.execute("CREATE TABLE IF NOT EXISTS migrations ("
                   "name TEXT PRIMARY KEY, applied_at TEXT DEFAULT (datetime('now')))")
         done = {r["name"] for r in c.execute("SELECT name FROM migrations")}
+
+        # что должно существовать, чтобы миграцию можно было считать выполненной
+        already = {
+            "incident_kind": lambda: "kind" in self._columns("incidents"),
+            "inc_counters_track": lambda: "track" in self._columns("inc_counters"),
+        }
+
         for name, statements in MIGRATIONS:
             if name in done:
+                continue
+            check = already.get(name)
+            if check and check():
+                c.execute("INSERT INTO migrations (name) VALUES (?)", (name,))
                 continue
             for sql in statements:
                 c.execute(sql)

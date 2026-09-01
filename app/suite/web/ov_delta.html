@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>iRC · дельта</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --surface:rgba(20,25,35,.93); --surface-2:rgba(27,34,48,.93);
+    --line:rgba(58,68,86,.5); --fg:#EAEEF5; --dim:#9AA6B8;
+    --accent:#FF5A1F; --closing:#22C55E; --growing:#EF4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent}
+  body{font:13px/1.2 'Inter',system-ui,sans-serif;color:var(--fg);padding:10px;width:330px}
+  .box{border-radius:10px;overflow:hidden;box-shadow:0 10px 30px -14px rgba(0,0,0,.8)}
+  .head{background:var(--accent);color:#fff;padding:5px 11px;font-family:'Rubik',sans-serif;
+        font-weight:700;font-size:10.5px;letter-spacing:.7px;text-transform:uppercase}
+  .car{display:grid;grid-template-columns:26px 32px 1fr;gap:8px;align-items:center;
+       padding:7px 11px;background:var(--surface)}
+  .car.chase{background:var(--surface-2);border-top:1px solid var(--line)}
+  .pos{font-family:'Rubik',sans-serif;font-weight:700;text-align:center;color:var(--dim)}
+  .num{font-family:'Rubik',sans-serif;font-weight:700;font-size:11px;text-align:center;
+       padding:2px 0;border-radius:4px;background:rgba(255,255,255,.09)}
+  .name{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}
+  .gap{display:flex;align-items:baseline;justify-content:center;gap:7px;
+       padding:8px 11px;background:var(--surface);border-top:1px solid var(--line)}
+  .val{font-family:'Rubik',sans-serif;font-weight:700;font-size:24px;
+       font-variant-numeric:tabular-nums}
+  .tr{font-size:12px;font-weight:600}
+  .tr.closing{color:var(--closing)}
+  .tr.growing{color:var(--growing)}
+  .tr.hold{color:var(--dim)}
+  .off{padding:12px;background:var(--surface);border-radius:10px;color:var(--dim);
+       text-align:center;font-size:12px}
+</style>
+</head>
+<body>
+<div id="root"><div class="off">пара не выбрана</div></div>
+<script>
+async function pull(){
+  try{
+    const d = await (await fetch('/api/broadcast/delta')).json();
+    const root = document.getElementById('root');
+    if(!d.ready){
+      root.innerHTML = `<div class="off">${d.pair && d.pair.length
+        ? 'ждём машины на трассе' : 'пара не выбрана'}</div>`;
+      return;
+    }
+    // тренд: -1 сокращается, +1 растёт, 0 держится
+    const tr = d.trend < 0 ? ['closing','▼ сокращается']
+             : d.trend > 0 ? ['growing','▲ растёт'] : ['hold','— держится'];
+    root.innerHTML = `<div class="box">
+      <div class="head">разрыв</div>
+      <div class="car">
+        <div class="pos">${d.lead.position}</div>
+        <div class="num">${d.lead.car_number}</div>
+        <div class="name">${d.lead.name}</div>
+      </div>
+      <div class="gap">
+        <div class="val">${d.gap.toFixed(1)}</div>
+        <div class="tr ${tr[0]}">${tr[1]}</div>
+      </div>
+      <div class="car chase">
+        <div class="pos">${d.chase.position}</div>
+        <div class="num">${d.chase.car_number}</div>
+        <div class="name">${d.chase.name}</div>
+      </div>
+    </div>`;
+  }catch(e){}
+}
+pull(); setInterval(pull, 500);
+</script>
+</body>
+</html>

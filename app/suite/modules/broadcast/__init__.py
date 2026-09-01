@@ -80,7 +80,8 @@ class BroadcastModule:
 
     def __init__(self):
         self.ctx: Context | None = None
-        self.pits = PitTracker()
+        self.pits_tracker = PitTracker()
+        self._delta_prev = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._subsession = None
@@ -104,7 +105,7 @@ class BroadcastModule:
 
     def status(self) -> dict:
         return {"cars": len(self._rows),
-                "tower_url": "/ov/tower"}
+                "overlays": ["tower", "grid", "commentators", "delta", "pits"]}
 
     # ---------- сбор данных ----------
 
@@ -124,15 +125,15 @@ class BroadcastModule:
             return
         if snap.subsession_id != self._subsession:
             self._subsession = snap.subsession_id
-            self.pits.reset()
+            self.pits_tracker.reset()
 
         rows = sim.timing()
         # В повторе CarIdx* показывают просматриваемый кадр — питы по ним
         # считать нельзя, иначе прошлые заезды запишутся как новые
         if snap.mode == "LIVE":
-            self.pits.update(rows, snap.session_time)
+            self.pits_tracker.update(rows, snap.session_time)
         for r in rows:
-            r["pit_stops"] = self.pits.count(r["car_idx"])
+            r["pit_stops"] = self.pits_tracker.count(r["car_idx"])
         self._rows = rows
         self.ctx.publish("timing", {"mode": snap.mode, "rows": rows})
 
@@ -162,6 +163,103 @@ class BroadcastModule:
             "total": len(rows),
         }
 
+    # ---------- остальные оверлеи ----------
+
+    def grid(self) -> dict:
+        """Стартовая решётка."""
+        rows = self.ctx.sim.qualifying_grid()
+        source = "qualifying"
+        if not rows:
+            # квалификации не было или результаты ещё не пришли — показываем
+            # текущий порядок, честно помечая источник
+            rows = [{"position": r["position"], "car_idx": r["car_idx"],
+                     "car_number": r["car_number"], "name": r["name"],
+                     "team": r["team"], "class_name": r["class_name"],
+                     "time": r["best_lap"] if r["best_lap"] > 0 else 0.0}
+                    for r in self._rows]
+            source = "current"
+        pole = rows[0]["time"] if rows and rows[0]["time"] > 0 else 0.0
+        for r in rows:
+            r["delta"] = round(r["time"] - pole, 3) if (r["time"] and pole) else 0.0
+        c = self.ctx.config
+        return {"source": source,
+                "track": self.ctx.sim.snapshot().track,
+                "title": c.get("grid_title", "стартовая решётка"),
+                "rows": rows[:int(c.get("grid_rows", 24))]}
+
+    def commentators(self) -> dict:
+        c = self.ctx.config
+        return {"visible": bool(c.get("comm_visible", False)),
+                "people": c.get("commentators", [])[:2],
+                "caption": c.get("comm_caption", "")}
+
+    def set_commentators(self, data: dict) -> dict:
+        c = self.ctx.config
+        if "people" in data:
+            people = []
+            for item in list(data["people"])[:2]:   # больше двух в плашку не влезает
+                people.append({"name": str(item.get("name", "")).strip(),
+                               "role": str(item.get("role", "")).strip()})
+            c["commentators"] = [x for x in people if x["name"]]
+        for key, cfg_key in (("visible", "comm_visible"),
+                             ("caption", "comm_caption")):
+            if key in data:
+                c[cfg_key] = data[key]
+        self.ctx.save_config()
+        self.ctx.publish("commentators", self.commentators())
+        return {"ok": True, **self.commentators()}
+
+    def delta(self) -> dict:
+        """Отставание между выбранными пилотами.
+
+        Считаем по F2Time — это оценка сима, на разорванном поле она грубее
+        секунды. Для пары, идущей не подряд, берём разницу их значений.
+        """
+        pair = [str(x).lstrip("#") for x in self.ctx.config.get("delta_pair", [])][:2]
+        by_num = {r["car_number"]: r for r in self._rows}
+        rows = [by_num.get(n) for n in pair]
+        if len(rows) < 2 or not all(rows):
+            return {"ready": False, "pair": pair}
+        a, b = rows
+        lead, chase = (a, b) if a["position"] < b["position"] else (b, a)
+        gap = round(abs(chase["gap"] - lead["gap"]), 2)
+
+        prev = self._delta_prev
+        trend = 0
+        if prev is not None:
+            diff = gap - prev
+            trend = -1 if diff < -0.05 else (1 if diff > 0.05 else 0)
+        self._delta_prev = gap
+        return {"ready": True, "gap": gap, "trend": trend,
+                "lead": {"car_number": lead["car_number"], "name": lead["name"],
+                         "position": lead["position"]},
+                "chase": {"car_number": chase["car_number"], "name": chase["name"],
+                          "position": chase["position"]},
+                "laps_apart": lead["laps"] - chase["laps"]}
+
+    def pits(self) -> dict:
+        """Пит-стопы по полю: сколько раз стоял и как долго."""
+        c = self.ctx.config
+        rows = []
+        for r in sorted(self._rows, key=lambda x: x["position"]):
+            stops = self.pits_tracker.stops(r["car_idx"])
+            if not stops and not c.get("pits_show_all", False):
+                continue
+            rows.append({
+                "position": r["position"],
+                "car_number": r["car_number"],
+                "name": r["name"],
+                "count": len(stops),
+                "last": stops[-1] if stops else None,
+                "total": round(sum(x["duration"] for x in stops), 1),
+                "in_pit": r["on_pit"] or r["in_pit_stall"],
+                # None = неизвестно: компаунд не менялся, но это не доказывает,
+                # что резину не меняли (см. ТЗ, B5)
+                "tyre_changed": stops[-1]["tyre_changed"] if stops else None,
+            })
+        return {"title": c.get("pits_title", "пит-стопы"),
+                "rows": rows[:int(c.get("pits_rows", 12))]}
+
     def settings(self) -> dict:
         c = self.ctx.config
         return {"tower_rows": c.get("tower_rows", 12),
@@ -169,12 +267,23 @@ class BroadcastModule:
                 "show_pits": c.get("show_pits", True),
                 "tower_title": c.get("tower_title", ""),
                 "focus_car": c.get("focus_car", ""),
-                "refresh_hz": c.get("refresh_hz", 3)}
+                "refresh_hz": c.get("refresh_hz", 3),
+                "grid_title": c.get("grid_title", "стартовая решётка"),
+                "grid_rows": c.get("grid_rows", 24),
+                "delta_pair": c.get("delta_pair", []),
+                "pits_title": c.get("pits_title", "пит-стопы"),
+                "pits_rows": c.get("pits_rows", 12),
+                "pits_show_all": c.get("pits_show_all", False),
+                "comm_visible": c.get("comm_visible", False),
+                "comm_caption": c.get("comm_caption", ""),
+                "commentators": c.get("commentators", [])}
 
     def set_settings(self, data: dict) -> dict:
         c = self.ctx.config
         for key in ("tower_rows", "gap_mode", "show_pits", "tower_title",
-                    "focus_car", "refresh_hz"):
+                    "focus_car", "refresh_hz", "grid_title", "grid_rows",
+                    "delta_pair", "pits_title", "pits_rows", "pits_show_all",
+                    "comm_visible", "comm_caption"):
             if key in data:
                 c[key] = data[key]
         self.ctx.save_config()
@@ -197,7 +306,16 @@ class BroadcastModule:
 
         return {
             "GET /ov/tower": page("ov_tower.html"),
+            "GET /ov/grid": page("ov_grid.html"),
+            "GET /ov/commentators": page("ov_commentators.html"),
+            "GET /ov/delta": page("ov_delta.html"),
+            "GET /ov/pits": page("ov_pits.html"),
             "GET /api/broadcast/tower": lambda r: self.tower(),
+            "GET /api/broadcast/grid": lambda r: self.grid(),
+            "GET /api/broadcast/commentators": lambda r: self.commentators(),
+            "POST /api/broadcast/commentators": lambda r: self.set_commentators(body(r)),
+            "GET /api/broadcast/delta": lambda r: self.delta(),
+            "GET /api/broadcast/pits": lambda r: self.pits(),
             "GET /api/broadcast/settings": lambda r: self.settings(),
             "POST /api/broadcast/settings": lambda r: self.set_settings(body(r)),
         }

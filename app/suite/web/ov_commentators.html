@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>iRC · комментаторы</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --surface:rgba(20,25,35,.94); --line:rgba(58,68,86,.5);
+    --fg:#EAEEF5; --dim:#9AA6B8; --accent:#FF5A1F;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent}
+  body{font:14px/1.25 'Inter',system-ui,sans-serif;color:var(--fg);padding:12px;width:520px}
+
+  .wrap{display:flex;gap:10px;align-items:flex-end;
+        opacity:0;transform:translateY(10px);
+        transition:opacity .35s ease,transform .35s ease}
+  .wrap.on{opacity:1;transform:none}
+
+  .card{background:var(--surface);border-radius:10px;overflow:hidden;
+        box-shadow:0 10px 30px -14px rgba(0,0,0,.8);min-width:200px}
+  .card .bar{height:3px;background:var(--accent)}
+  .card .body{padding:8px 12px}
+  .nm{font-family:'Rubik',sans-serif;font-weight:700;font-size:15px;line-height:1.15}
+  .rl{color:var(--dim);font-size:11.5px;margin-top:2px;text-transform:uppercase;
+      letter-spacing:.6px}
+  .cap{align-self:flex-end;background:var(--accent);color:#fff;border-radius:8px;
+       padding:6px 10px;font-family:'Rubik',sans-serif;font-weight:700;font-size:11px;
+       text-transform:uppercase;letter-spacing:.6px}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"></div>
+<script>
+let last = '';
+function render(d){
+  const wrap = document.getElementById('wrap');
+  const people = (d.people || []).filter(p => p.name);
+  const key = JSON.stringify([d.visible, people, d.caption]);
+  if(key === last) return;              // не дёргаем анимацию впустую
+  last = key;
+
+  wrap.innerHTML = people.map(p => `
+    <div class="card"><div class="bar"></div><div class="body">
+      <div class="nm">${p.name}</div>
+      ${p.role ? `<div class="rl">${p.role}</div>` : ''}
+    </div></div>`).join('') +
+    (d.caption ? `<div class="cap">${d.caption}</div>` : '');
+
+  // класс вешаем следующим кадром, иначе перехода не будет
+  requestAnimationFrame(() => {
+    wrap.classList.toggle('on', !!(d.visible && people.length));
+  });
+}
+async function pull(){
+  try{ render(await (await fetch('/api/broadcast/commentators')).json()); }catch(e){}
+}
+pull(); setInterval(pull, 700);
+</script>
+</body>
+</html>

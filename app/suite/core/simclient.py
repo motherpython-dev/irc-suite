@@ -302,6 +302,47 @@ class SimClient:
         rows.sort(key=lambda r: r["position"])
         return rows
 
+    def qualifying_grid(self) -> list[dict]:
+        """Стартовая решётка из результатов квалификации.
+
+        Берём последнюю сессию типа Qualify с непустыми результатами. Если её
+        нет (гонка без квалификации, присоединились позже), вызывающий код
+        падает на текущие позиции — здесь возвращаем пусто.
+        """
+        info = self._session_info or {}
+        best = None
+        for sess in (info.get("Sessions") or []):
+            stype = str(sess.get("SessionType") or "").lower()
+            if "qual" in stype and sess.get("ResultsPositions"):
+                best = sess
+        if not best:
+            return []
+        out = []
+        for row in best.get("ResultsPositions") or []:
+            idx = row.get("CarIdx")
+            if idx is None:
+                continue
+            d = self._drivers.get(int(idx))
+            if not d:
+                continue
+            t = row.get("FastestTime")
+            try:
+                t = float(t)
+            except (TypeError, ValueError):
+                t = 0.0
+            out.append({
+                "position": int(row.get("Position") or 0) + 1,
+                "car_idx": int(idx),
+                "car_number": d.car_number,
+                "name": d.name,
+                "team": d.team,
+                "class_name": d.class_name,
+                # отрицательное значение = круга нет (не проехал квалификацию)
+                "time": round(t, 3) if t and t > 0 else 0.0,
+            })
+        out.sort(key=lambda r: r["position"])
+        return out
+
     def camera_groups(self) -> dict[str, int]:
         """{'TV1': 2, 'Nose': 1, ...} из session YAML CameraInfo."""
         try:

@@ -93,6 +93,10 @@
     width:100%;background:var(--surface-2);color:var(--fg);
     border:1px solid var(--line);border-radius:8px;padding:6px 9px;font:inherit;font-size:13px}
   .kv input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+  .ovrow{display:flex;align-items:center;gap:10px;padding:6px 0;
+         border-top:1px solid var(--line)}
+  .ovrow .ovname{width:190px;font-size:13px}
+  .ovrow code{flex:1}
   code{background:var(--surface-2);padding:2px 6px;border-radius:6px;font-size:12px}
   #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px}
   .toast{background:var(--surface);border:1px solid var(--line);
@@ -227,24 +231,36 @@ function renderView(){
     return;
   }
   if(tab === 'broadcast'){
+    const OV = [
+      ['tower','Башня позиций'], ['grid','Стартовая решётка'],
+      ['commentators','Плашка комментаторов'], ['delta','Дельта пилотов'],
+      ['pits','Пит-стопы'],
+    ];
+    const links = OV.map(([id,title]) => `
+      <div class="ovrow">
+        <div class="ovname">${title}</div>
+        <code>/ov/${id}</code>
+        <button onclick="copyUrl('${id}')">копировать</button>
+        <button onclick="window.open('/ov/${id}','_blank')">открыть</button>
+      </div>`).join('');
+
     $('#view').innerHTML = `
       <h1>${meta.title}</h1><div class="sub">${meta.desc}</div>
       <div class="cards">
-        <div class="card">
+        <div class="card" style="grid-column:1/-1">
           <h3>Модуль</h3>
           <div class="row">
             <div class="sw ${st.started?'on':''}" data-toggle="broadcast"></div>
             <div class="state ${st.started?'':'off'}"><b>${st.started?'включён':'выключен'}</b></div>
-            ${st.started ? `<div class="spacer"></div><div class="state">машин: ${st.cars ?? 0}</div>` : ''}
+            ${st.started ? `<div class="spacer"></div><div class="state">машин в кадре: ${st.cars ?? 0}</div>` : ''}
           </div>
-          <div style="height:12px"></div>
-          <div class="state">Источник для OBS (browser source):</div>
-          <div style="height:6px"></div>
-          <code id="ov-url">http://127.0.0.1:8777/ov/tower</code>
-          <div style="height:10px"></div>
-          <button onclick="copyUrl()">Скопировать адрес</button>
-          <button onclick="window.open('/ov/tower','_blank')">Открыть</button>
+          <div style="height:14px"></div>
+          <div class="state">Добавь адрес в OBS как <b>browser source</b> — фон прозрачный,
+            размер и место задаёт сам OBS:</div>
+          <div style="height:8px"></div>
+          ${links}
         </div>
+
         <div class="card">
           <h3>Башня позиций</h3>
           <div class="kv">
@@ -258,6 +274,64 @@ function renderView(){
             <div>Держать в кадре #</div><div><input id="b-focus" placeholder="номер"></div>
             <div>Показывать питы</div><div><input id="b-pits" type="checkbox"></div>
           </div>
+          <div style="height:12px"></div>
+          <button class="primary" onclick="saveBroadcast()">Применить</button>
+        </div>
+
+        <div class="card">
+          <h3>Стартовая решётка</h3>
+          <div class="kv">
+            <div>Заголовок</div><div><input id="g-title"></div>
+            <div>Строк</div><div><input id="g-rows" type="number" min="2" max="60"></div>
+          </div>
+          <div style="height:10px"></div>
+          <div class="state">Берётся из результатов квалификации. Если её не было —
+            покажет текущий порядок и honest-подпись об этом.</div>
+          <div style="height:12px"></div>
+          <button class="primary" onclick="saveBroadcast()">Применить</button>
+        </div>
+
+        <div class="card">
+          <h3>Плашка комментаторов</h3>
+          <div class="kv">
+            <div>Первый</div><div><input id="c-n1" placeholder="имя"></div>
+            <div>Роль</div><div><input id="c-r1" placeholder="комментатор"></div>
+            <div>Второй</div><div><input id="c-n2" placeholder="имя"></div>
+            <div>Роль</div><div><input id="c-r2" placeholder="эксперт"></div>
+            <div>Подпись справа</div><div><input id="c-cap" placeholder="в эфире"></div>
+          </div>
+          <div style="height:12px"></div>
+          <div class="row">
+            <button class="primary" onclick="showComm(true)">Показать</button>
+            <button onclick="showComm(false)">Скрыть</button>
+            <div class="spacer"></div>
+            <div class="state" id="c-state"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Дельта пилотов</h3>
+          <div class="kv">
+            <div>Первый №</div><div><input id="d-a" placeholder="номер или фамилия"></div>
+            <div>Второй №</div><div><input id="d-b" placeholder="номер или фамилия"></div>
+          </div>
+          <div style="height:10px"></div>
+          <div class="state">Разрыв считается по оценке сима (F2Time): на разорванном
+            поле точность хуже секунды.</div>
+          <div style="height:12px"></div>
+          <button class="primary" onclick="saveDelta()">Применить</button>
+        </div>
+
+        <div class="card">
+          <h3>Пит-стопы</h3>
+          <div class="kv">
+            <div>Заголовок</div><div><input id="p-title"></div>
+            <div>Строк</div><div><input id="p-rows" type="number" min="3" max="40"></div>
+            <div>Показывать всех</div><div><input id="p-all" type="checkbox"></div>
+          </div>
+          <div style="height:10px"></div>
+          <div class="state">Остановка считается по въезду в бокс: проезд по пит-лейну
+            насквозь не в счёт.</div>
           <div style="height:12px"></div>
           <button class="primary" onclick="saveBroadcast()">Применить</button>
         </div>
@@ -306,27 +380,75 @@ document.addEventListener('click', async e => {
 async function loadBroadcast(){
   try{
     const s = await (await fetch('/api/broadcast/settings')).json();
-    const set = (id, v) => { const el = $(id); if(el) el.value = v; };
-    set('#b-title', s.tower_title || '');
-    set('#b-rows', s.tower_rows);
-    set('#b-gap', s.gap_mode);
-    set('#b-focus', s.focus_car || '');
-    const p = $('#b-pits'); if(p) p.checked = !!s.show_pits;
+    const set = (id, v) => { const el = $(id); if(el) el.value = v ?? ''; };
+    const chk = (id, v) => { const el = $(id); if(el) el.checked = !!v; };
+    set('#b-title', s.tower_title); set('#b-rows', s.tower_rows);
+    set('#b-gap', s.gap_mode); set('#b-focus', s.focus_car);
+    chk('#b-pits', s.show_pits);
+    set('#g-title', s.grid_title); set('#g-rows', s.grid_rows);
+    set('#p-title', s.pits_title); set('#p-rows', s.pits_rows);
+    chk('#p-all', s.pits_show_all);
+    const pair = s.delta_pair || [];
+    set('#d-a', pair[0]); set('#d-b', pair[1]);
+    const c = s.commentators || [];
+    set('#c-n1', c[0] && c[0].name); set('#c-r1', c[0] && c[0].role);
+    set('#c-n2', c[1] && c[1].name); set('#c-r2', c[1] && c[1].role);
+    set('#c-cap', s.comm_caption);
+    const st = $('#c-state');
+    if(st) st.textContent = s.comm_visible ? 'в эфире' : 'скрыта';
   }catch(e){}
 }
+
 async function saveBroadcast(){
+  const num = (id, def) => Number($(id) && $(id).value) || def;
   const r = await post('/api/broadcast/settings', {
     tower_title: $('#b-title').value,
-    tower_rows: Number($('#b-rows').value) || 12,
+    tower_rows: num('#b-rows', 12),
     gap_mode: $('#b-gap').value,
     focus_car: $('#b-focus').value.replace('#','').trim(),
     show_pits: $('#b-pits').checked,
+    grid_title: $('#g-title').value,
+    grid_rows: num('#g-rows', 24),
+    pits_title: $('#p-title').value,
+    pits_rows: num('#p-rows', 12),
+    pits_show_all: $('#p-all').checked,
   });
-  if(r.ok) toast('Настройки башни применены');
+  if(r.ok) toast('Настройки применены');
 }
-function copyUrl(){
-  navigator.clipboard.writeText($('#ov-url').textContent)
-    .then(() => toast('Адрес скопирован — добавь в OBS как browser source'))
+
+async function saveDelta(){
+  // поле принимает и номер, и фамилию — номер вытаскиваем через общий поиск
+  const resolve = async v => {
+    v = (v || '').trim();
+    if(!v) return '';
+    const list = await (await fetch('/api/drivers?q=' + encodeURIComponent(v))).json();
+    return list.length ? list[0].car_number : v.replace('#','');
+  };
+  const pair = [await resolve($('#d-a').value), await resolve($('#d-b').value)]
+    .filter(Boolean);
+  const r = await post('/api/broadcast/settings', {delta_pair: pair});
+  if(r.ok) toast(pair.length === 2 ? `Пара: #${pair[0]} и #${pair[1]}`
+                                   : 'Укажи обоих пилотов', pair.length===2?'':'err');
+  loadBroadcast();
+}
+
+async function showComm(visible){
+  const people = [
+    {name: $('#c-n1').value, role: $('#c-r1').value},
+    {name: $('#c-n2').value, role: $('#c-r2').value},
+  ];
+  const r = await post('/api/broadcast/commentators',
+                       {people, visible, caption: $('#c-cap').value});
+  if(r.ok){
+    toast(visible ? 'Плашка в эфире' : 'Плашка скрыта');
+    const st = $('#c-state'); if(st) st.textContent = visible ? 'в эфире' : 'скрыта';
+  }
+}
+
+function copyUrl(name){
+  const url = location.origin + '/ov/' + name;
+  navigator.clipboard.writeText(url)
+    .then(() => toast('Скопировано: ' + url))
     .catch(() => toast('Не удалось скопировать', 'err'));
 }
 
