@@ -58,6 +58,8 @@ class RaceControlModule:
 
     def status(self) -> dict:
         return {
+            "overlay_visible": self.overlay_visible(),
+            "overlay_available": self.overlay is not None,
             "incidents": len(self.incidents()) if self.ctx else 0,
             "pace_laps": self.pace_laps,
             "missed_in_replay": self.detector.missed_in_replay if self.detector else 0,
@@ -67,10 +69,27 @@ class RaceControlModule:
         """Оверлею нужен главный поток (Tk). Ядро спрашивает об этом при старте."""
         return bool(self.ctx and self.ctx.config.get("overlay_enabled", True))
 
-    def build_overlay(self):
+    def build_overlay(self, host_root=None):
         from .overlay import Overlay
-        self.overlay = Overlay(self)
+        self.overlay = Overlay(self, host_root)
         return self.overlay
+
+    # ---------- окно оверлея ----------
+
+    def overlay_visible(self) -> bool:
+        return bool(self.overlay and self.overlay.visible)
+
+    def set_overlay(self, visible: bool) -> dict:
+        """Показать или убрать окно поверх сима.
+
+        Tk не потокобезопасен, а команда приходит из HTTP-потока или из трея,
+        поэтому переключение уходит в очередь главного потока.
+        """
+        if not self.overlay:
+            return {"ok": False, "error": "no_overlay",
+                    "message": "Оверлей выключен в настройках модуля"}
+        self.overlay.request_visible(bool(visible))
+        return {"ok": True, "visible": bool(visible)}
 
     # ---------- данные ----------
 
@@ -235,6 +254,11 @@ class RaceControlModule:
         return {
             "GET /api/racecontrol/incidents": lambda r: self.incidents(),
             "GET /api/racecontrol/cameras": lambda r: self.cameras(),
+            "GET /api/racecontrol/overlay":
+                lambda r: {"visible": self.overlay_visible(),
+                           "available": self.overlay is not None},
+            "POST /api/racecontrol/overlay":
+                lambda r: self.set_overlay(bool(body(r).get("visible"))),
             "POST /api/racecontrol/show":
                 lambda r: self.show_incident(int(body(r).get("id", 0))),
             "POST /api/racecontrol/live": lambda r: self.resume_live(),

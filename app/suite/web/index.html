@@ -367,13 +367,20 @@ function renderView(){
           <div>Модуль</div><div>${st.started ? 'включён' : 'выключен'}</div>
           <div>Инцидентов в ленте</div><div>${st.incidents ?? 0}</div>
           <div>Кругов под жёлтым</div><div>${st.pace_laps ?? '—'}</div>
+          <div>Оверлей поверх сима</div><div>${
+            !st.overlay_available ? 'выключен в настройках'
+              : (st.overlay_visible ? 'показан' : 'скрыт')}</div>
         </div>
         <div style="height:14px"></div>
         <div class="row">
           <div class="sw ${st.started?'on':''}" data-toggle="racecontrol"></div>
-          <button class="primary" onclick="location.href='/racecontrol'">
-            Открыть панель рейс-контроля</button>
+          <button class="primary" onclick="toggleRcOverlay(${st.overlay_visible ? 'false' : 'true'})">
+            ${st.overlay_visible ? 'Скрыть оверлей' : 'Показать оверлей'}</button>
+          <button onclick="window.open('/racecontrol','_blank')">Веб-панель</button>
         </div>
+        <div class="state" style="margin-top:10px">
+          Оверлей — окно поверх iRacing. Веб-панель нужна для второго монитора
+          или стюарда на другой машине.</div>
       </div></div>`;
     return;
   }
@@ -395,6 +402,12 @@ document.addEventListener('click', async e => {
     refresh();
   }
 });
+
+async function toggleRcOverlay(visible){
+  const r = await post('/api/racecontrol/overlay', {visible});
+  if(r.ok) toast(visible ? 'Оверлей показан' : 'Оверлей скрыт');
+  setTimeout(refresh, 400);
+}
 
 async function toggleLan(){
   const r = await post('/api/lan', {allow: !state.allow_lan});

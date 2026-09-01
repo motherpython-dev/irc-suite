@@ -107,7 +107,7 @@ def main() -> int:
 
         rc = app.module("racecontrol")
         if rc and getattr(rc, "ctx", None) and rc.wants_main_thread():
-            overlay = rc.build_overlay()
+            overlay = rc.build_overlay(host.root())
             tray.overlay = overlay
             log.info("оверлей рейс-контрола запущен")
 

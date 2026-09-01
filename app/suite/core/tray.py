@@ -75,6 +75,22 @@ class Tray:
                                      ("Комментаторы", "/ov/commentators"),
                                      ("Дельта пилотов", "/ov/delta"),
                                      ("Пит-стопы", "/ov/pits"))])))
+        windows = []
+        rc = self.app.module("racecontrol")
+        if rc and getattr(rc, "overlay", None):
+            windows.append(pystray.MenuItem(
+                "Оверлей рейс-контроля",
+                lambda: rc.overlay.request_toggle(),
+                checked=lambda _: rc.overlay_visible()))
+        bc = self.app.module("broadcast")
+        if bc and getattr(bc, "deck", None):
+            windows.append(pystray.MenuItem(
+                "Пульт эфира",
+                lambda: bc.deck.toggle(),
+                checked=lambda _: bool(bc.deck and bc.deck.visible)))
+        if windows:
+            items.append(pystray.Menu.SEPARATOR)
+            items.extend(windows)
         items.append(pystray.Menu.SEPARATOR)
         for st in self.app.registry.statuses():
             mid = st["id"]

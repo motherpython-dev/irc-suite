@@ -551,7 +551,7 @@ class HotkeyListener(threading.Thread):
 class Overlay:
     WIDTH = 430
 
-    def __init__(self, app):
+    def __init__(self, app, host_root=None):
         self.app = app
         self.cfg = app.cfg
         self.visible = True
@@ -568,11 +568,13 @@ class Overlay:
         # Корень Tk один на всё приложение (модули включаются на лету), поэтому
         # окно оверлея — Toplevel поверх общего хоста.
         from ...core.ui import host
-        self.root = tk.Toplevel(host.root()) if host.is_running() else tk.Tk()
+        parent = host_root if host_root is not None else (
+            host.root() if host.is_running() else None)
+        self.root = tk.Toplevel(parent) if parent is not None else tk.Tk()
         self.root.withdraw()
         self.f_display = pick_font(FONT_DISPLAY, FONT_UI)   # Rubik -> Inter -> Segoe UI
         self.f_ui = pick_font(FONT_UI, FONT_DISPLAY)
-        self.root.title("ichamps Race Control Overlay")
+        self.root.title("iRC Race Control")
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
         self.root.attributes("-alpha", float(self.cfg.get("overlay_alpha", 0.92)))
@@ -948,6 +950,10 @@ class Overlay:
         """Потокобезопасная точка входа — из трея или любого другого потока."""
         self._hotkeys.put("toggle")
 
+    def request_visible(self, visible: bool) -> None:
+        """Показать или скрыть из чужого потока (HTTP, трей)."""
+        self._hotkeys.put("show" if visible else "hide")
+
     def toggle(self) -> None:
         self.hide() if self.visible else self.show()
 
@@ -967,8 +973,13 @@ class Overlay:
     def _tick(self) -> None:
         try:
             while True:
-                if self._hotkeys.get_nowait() == "toggle":
+                cmd = self._hotkeys.get_nowait()
+                if cmd == "toggle":
                     self.toggle()
+                elif cmd == "show":
+                    self.show()
+                elif cmd == "hide":
+                    self.hide()
         except queue.Empty:
             pass
 
