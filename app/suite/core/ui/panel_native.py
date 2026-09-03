@@ -66,15 +66,71 @@ def _windows_of(pid: int) -> list[tuple[int, str]]:
     return found
 
 
-def _set_icon(icon: Path) -> None:
-    """Повесить иконку iRC на окно панели.
+def _to_front(hwnd: int) -> None:
+    """Показать окно поверх остальных.
+
+    Окно создаёт отдельный отсоединённый процесс, а Windows не даёт фоновому
+    процессу забрать передний план: окно появлялось ЗА другими, и со стороны
+    выглядело так, будто программа ушла в трей без окна.
+
+    Обходим штатным приёмом: коротко делаем окно topmost и сразу снимаем
+    флаг. Так окно оказывается сверху, но не залипает поверх всего.
+    """
+    u32 = ctypes.windll.user32
+    SWP_NOSIZE, SWP_NOMOVE, SWP_SHOWWINDOW = 0x0001, 0x0002, 0x0040
+    HWND_TOPMOST, HWND_NOTOPMOST = -1, -2
+    flags = SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW
+    u32.ShowWindow(hwnd, 5)                   # SW_SHOW
+    u32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
+    u32.SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+    u32.BringWindowToTop(hwnd)
+
+    # SetForegroundWindow фоновому процессу Windows обычно запрещает. Штатный
+    # обход — на миг подключиться к очереди ввода того потока, который сейчас
+    # владеет передним планом: для системы это выглядит как передача фокуса
+    # внутри одной группы.
+    fg = u32.GetForegroundWindow()
+    mine = k32_current_thread()
+    theirs = u32.GetWindowThreadProcessId(fg, None) if fg else 0
+    attached = bool(theirs and theirs != mine
+                    and u32.AttachThreadInput(theirs, mine, True))
+    try:
+        u32.SetForegroundWindow(hwnd)
+        u32.SetActiveWindow(hwnd)
+    finally:
+        if attached:
+            u32.AttachThreadInput(theirs, mine, False)
+
+
+def _describe(hwnd: int) -> str:
+    """Где оказалось окно: видимость, размеры, место в z-порядке.
+
+    Нужно потому, что «окно не открылось» и «окно открылось за чужими
+    окнами» со стороны выглядят одинаково, а лечатся по-разному.
+    """
+    u32 = ctypes.windll.user32
+    r = wintypes.RECT()
+    u32.GetWindowRect(hwnd, ctypes.byref(r))
+    order, cur = [], u32.GetTopWindow(None)
+    while cur:
+        if u32.IsWindowVisible(cur):
+            order.append(cur)
+        cur = u32.GetWindow(cur, 2)                 # GW_HWNDNEXT
+    place = order.index(hwnd) + 1 if hwnd in order else 0
+    return (f"видимо={bool(u32.IsWindowVisible(hwnd))} "
+            f"свёрнуто={bool(u32.IsIconic(hwnd))} "
+            f"впереди={hwnd == u32.GetForegroundWindow()} "
+            f"z={place}/{len(order)} "
+            f"область={r.left},{r.top} {r.right - r.left}x{r.bottom - r.top}")
+
+
+def _prepare_window(icon: Path) -> None:
+    """Повесить иконку iRC и вывести окно вперёд.
 
     pywebview не отдаёт наружу форму окна (`window.native` пуст к моменту
-    старта), поэтому идём напрямую: находим окно процесса и шлём WM_SETICON.
+    старта), поэтому идём напрямую: находим окно процесса и шлём ему сообщения.
     Способ не зависит от версии библиотеки и бэкенда.
     """
-    if not icon.exists():
-        return
     u32 = ctypes.windll.user32
     for _ in range(60):                       # окно появляется не мгновенно
         windows = _windows_of(os.getpid())
@@ -82,14 +138,21 @@ def _set_icon(icon: Path) -> None:
             break
         time.sleep(0.25)
     else:
-        log.warning("окно панели не найдено — иконка осталась стандартной")
+        log.warning("окно панели не найдено — ни иконки, ни показа")
         return
 
-    big = u32.LoadImageW(None, str(icon), IMAGE_ICON, 256, 256, LR_LOADFROMFILE)
-    small = u32.LoadImageW(None, str(icon), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+    if icon.exists():
+        big = u32.LoadImageW(None, str(icon), IMAGE_ICON, 256, 256, LR_LOADFROMFILE)
+        small = u32.LoadImageW(None, str(icon), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+        for hwnd, _title in windows:
+            u32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, big)
+            u32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, small)
+    else:
+        log.warning("иконка не найдена: %s", icon)
+
     for hwnd, _title in windows:
-        u32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, big)
-        u32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, small)
+        _to_front(hwnd)
+        log.info("окно панели: %s", _describe(hwnd))
 
 
 def focus(pid: int) -> bool:
@@ -100,7 +163,7 @@ def focus(pid: int) -> bool:
         return False
     hwnd = windows[0][0]
     u32.ShowWindow(hwnd, 9)               # SW_RESTORE — развернуть из свёрнутого
-    u32.SetForegroundWindow(hwnd)
+    _to_front(hwnd)
     return True
 
 
@@ -136,6 +199,10 @@ class _JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
 
 
 _JOB = None                       # держим хэндл живым, иначе job закроется сразу
+
+
+def k32_current_thread() -> int:
+    return ctypes.windll.kernel32.GetCurrentThreadId()
 
 
 def _die_together() -> None:
@@ -221,8 +288,8 @@ def run(url: str, icon: Path, storage: Path, title: str = "iRC",
     storage.mkdir(parents=True, exist_ok=True)
     webview.create_window(title, url, width=size[0], height=size[1],
                           background_color="#0B0E14")
-    threading.Thread(target=_set_icon, args=(icon,), daemon=True,
-                     name="panel-icon").start()
+    threading.Thread(target=_prepare_window, args=(icon,), daemon=True,
+                     name="panel-window").start()
     webview.start(gui="edgechromium", private_mode=False,
                   storage_path=str(storage))
     return 0

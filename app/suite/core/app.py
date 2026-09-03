@@ -235,8 +235,16 @@ class Application:
         # Вывод процесса уводим в файл: у отсоединённого окна нет консоли, и
         # без этого падение движка не оставляет никаких следов.
         out = open(config.data_dir() / "panel-window.log", "a", encoding="utf-8")
-        return subprocess.Popen(args, close_fds=True, stdout=out, stderr=out,
+        proc = subprocess.Popen(args, close_fds=True, stdout=out, stderr=out,
                                 creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+        # Разрешаем окну выйти вперёд: без этого Windows не даёт фоновому
+        # процессу передний план, и окно поднимается за чужими окнами.
+        try:
+            import ctypes
+            ctypes.windll.user32.AllowSetForegroundWindow(proc.pid)
+        except Exception:
+            pass
+        return proc
 
     def start(self) -> None:
         self.server.start()
