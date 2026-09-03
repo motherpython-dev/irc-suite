@@ -142,6 +142,12 @@ def make_handler(api: Api, hub: Hub, dynamic=None):
                 return self._file(WEB_DIR / "index.html", "text/html; charset=utf-8")
             if p == "/assets/logo.png":
                 return self._file(ASSETS_DIR / "logo-irc.png", "image/png")
+            # Окно панели — это Chrome в режиме --app, и значок в панели задач
+            # он берёт из фавиконки страницы. Без неё висит серый глобус.
+            if p == "/favicon.ico":
+                return self._file(ASSETS_DIR / "icon.ico", "image/x-icon")
+            if p == "/assets/icon.png":
+                return self._file(ASSETS_DIR / "icon-256.png", "image/png")
             if p == "/deck":
                 return self._file(WEB_DIR / "deck.html", "text/html; charset=utf-8")
             if p == "/racecontrol":
