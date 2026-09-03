@@ -20,6 +20,7 @@ from __future__ import annotations
 import ctypes
 import logging
 import os
+import shutil
 import threading
 import time
 from ctypes import wintypes
@@ -103,6 +104,73 @@ def focus(pid: int) -> bool:
     return True
 
 
+class _JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
+    _fields_ = [
+        ("PerProcessUserTimeLimit", ctypes.c_int64),
+        ("PerJobUserTimeLimit", ctypes.c_int64),
+        ("LimitFlags", wintypes.DWORD),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", wintypes.DWORD),
+        ("Affinity", ctypes.POINTER(ctypes.c_ulong)),
+        ("PriorityClass", wintypes.DWORD),
+        ("SchedulingClass", wintypes.DWORD),
+    ]
+
+
+class _IO_COUNTERS(ctypes.Structure):
+    _fields_ = [(n, ctypes.c_uint64) for n in
+                ("ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+                 "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+
+class _JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
+    _fields_ = [
+        ("BasicLimitInformation", _JOBOBJECT_BASIC_LIMIT_INFORMATION),
+        ("IoInfo", _IO_COUNTERS),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
+    ]
+
+
+_JOB = None                       # держим хэндл живым, иначе job закроется сразу
+
+
+def _die_together() -> None:
+    """Забрать движок с собой.
+
+    WebView2 поднимает свои процессы `msedgewebview2.exe`, и они переживают
+    закрытие окна: остаются сиротами и держат папку данных движка. Следующий
+    запуск получает занятое хранилище и молча показывает пустоту — программа
+    как будто уходит в трей без окна.
+
+    Лечится job-объектом: все процессы, порождённые после привязки, погибают
+    вместе с нами — хоть по закрытию окна, хоть по kill извне.
+    """
+    global _JOB
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateJobObjectW.restype = wintypes.HANDLE
+    job = k32.CreateJobObjectW(None, None)
+    if not job:
+        log.warning("не удалось создать job — движок может пережить окно")
+        return
+    info = _JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+    info.BasicLimitInformation.LimitFlags = 0x2000   # KILL_ON_JOB_CLOSE
+    if not k32.SetInformationJobObject(job, 9, ctypes.byref(info),
+                                       ctypes.sizeof(info)):
+        log.warning("job создан, но лимит не выставлен")
+        return
+    if not k32.AssignProcessToJobObject(job, k32.GetCurrentProcess()):
+        # Windows отказывает, когда процесс уже состоит в чужом job без права
+        # вложения. Тогда за уборку отвечает родитель — он гасит дерево.
+        log.warning("процесс не привязался к job (ошибка %d) — движок уберёт "
+                    "родительский процесс", ctypes.get_last_error())
+        return
+    _JOB = job
+
+
 def _free_storage(base: Path) -> Path:
     """Папку данных WebView2 нельзя делить между окнами.
 
@@ -119,7 +187,20 @@ def _free_storage(base: Path) -> Path:
             alt = base.with_name(f"{base.name}-{os.getpid()}")
             log.warning("хранилище WebView2 занято — открываю панель в %s", alt.name)
             return alt
+    _drop_stale(base)
     return base
+
+
+def _drop_stale(base: Path) -> None:
+    """Убрать запасные папки, оставшиеся от прошлых аварийных запусков."""
+    parent = base.parent
+    if not parent.is_dir():
+        return
+    for d in parent.glob(f"{base.name}-*"):
+        try:
+            shutil.rmtree(d)
+        except OSError:
+            pass                      # ещё занята — уберём в следующий раз
 
 
 def run(url: str, icon: Path, storage: Path, title: str = "iRC",
@@ -135,6 +216,7 @@ def run(url: str, icon: Path, storage: Path, title: str = "iRC",
     except Exception:                                        # noqa: BLE001
         pass                                  # не критично, только группировка
 
+    _die_together()
     storage = _free_storage(storage)
     storage.mkdir(parents=True, exist_ok=True)
     webview.create_window(title, url, width=size[0], height=size[1],

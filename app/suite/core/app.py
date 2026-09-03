@@ -210,6 +210,18 @@ class Application:
             # видит только иконку и не понимает, почему — поэтому в лог
             log.exception("панель не открылась: %s", url)
 
+    @staticmethod
+    def _close_panel_tree(pid: int) -> None:
+        """Закрыть окно панели вместе с процессами движка.
+
+        WebView2 поднимает свои `msedgewebview2.exe`, и просто убить окно мало:
+        они остаются сиротами, держат папку данных движка, и следующий запуск
+        показывает пустоту вместо панели. Поэтому гасим дерево целиком.
+        """
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                       capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
     def _spawn_panel(self, url: str) -> subprocess.Popen:
         """Процесс окна панели: сам exe с флагом, а из исходников — run.py."""
         if getattr(sys, "frozen", False):
@@ -249,7 +261,7 @@ class Application:
         # закрываем вместе с приложением, иначе останется висеть без сервера.
         if self._panel and self._panel.poll() is None:
             try:
-                self._panel.terminate()
+                self._close_panel_tree(self._panel.pid)
             except Exception:
                 log.debug("окно панели не закрылось", exc_info=True)
         self.storage.log_event("app_stop", {"version": VERSION})
