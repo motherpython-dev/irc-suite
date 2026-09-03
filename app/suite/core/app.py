@@ -181,7 +181,12 @@ class Application:
         """Панель открывается окном приложения, а не вкладкой браузера."""
         from .ui.panel_window import open_panel as open_window
         url = self.server.url.rstrip("/") + (path or "/")
-        open_window(url, profile_dir=config.data_dir() / "panel-profile")
+        try:
+            open_window(url, profile_dir=config.data_dir() / "panel-profile")
+        except Exception:
+            # без панели программа остаётся живой в трее, но пользователь
+            # видит только иконку и не понимает, почему — поэтому в лог
+            log.exception("панель не открылась: %s", url)
 
     def start(self) -> None:
         self.server.start()

@@ -64,6 +64,7 @@ def open_panel(url: str, profile_dir: Path | None = None,
     """
     exe = _find_browser()
     if not exe:
+        log.warning("браузер не найден — открываю панель вкладкой: %s", url)
         webbrowser.open(url)
         return False
 
@@ -76,6 +77,7 @@ def open_panel(url: str, profile_dir: Path | None = None,
         # DETACHED_PROCESS: окно живёт своей жизнью и не тянет за собой iRC
         subprocess.Popen(args, close_fds=True,
                          creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+        log.info("окно панели открыто через %s", Path(exe).name)
         return True
     except Exception:
         log.exception("не удалось открыть окно панели, падаю в браузер")
