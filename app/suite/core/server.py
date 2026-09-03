@@ -169,6 +169,10 @@ def make_handler(api: Api, hub: Hub, dynamic=None):
             if self._dynamic(p, "POST"):
                 return
             body = self._body()
+            if p == "/api/panel":
+                # повторный запуск программы просит показать окно панели
+                api.open_panel()
+                return self._json({"ok": True})
             if p == "/api/lan":
                 return self._json(api.set_lan(bool(body.get("allow"))))
             if p == "/api/modules/set":

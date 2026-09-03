@@ -7,9 +7,12 @@
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
 import threading
 import time
 import webbrowser
+from pathlib import Path
 
 from . import config
 from .commands import RaceControl
@@ -38,6 +41,7 @@ class Application:
                                   bind_all=bool(self.cfg.get("allow_lan", False)))
 
         self._stop = threading.Event()
+        self._panel = None               # процесс окна панели, см. open_panel
         self.on_module_change = None     # трей перерисовывает меню
         self.on_mode_change = None       # трей меняет цвет значка
 
@@ -178,15 +182,49 @@ class Application:
     # ---------- жизненный цикл ----------
 
     def open_panel(self, path: str = "") -> None:
-        """Панель открывается окном приложения, а не вкладкой браузера."""
-        from .ui.panel_window import open_panel as open_window
+        """Показать панель родным окном на WebView2.
+
+        Окно поднимает отдельный процесс (`--panel`): главный поток занят
+        циклом Tk, на котором держатся оверлеи. Если панель уже открыта —
+        не плодим вторую, а поднимаем существующую.
+        """
         url = self.server.url.rstrip("/") + (path or "/")
+        from .ui import panel_native
+
+        if self._panel and self._panel.poll() is None:
+            if panel_native.focus(self._panel.pid):
+                return
+            # окно закрыли, а процесс ещё жив — не ждём, откроем заново
+
+        try:
+            self._panel = self._spawn_panel(url)
+            return
+        except Exception:
+            log.exception("родное окно панели не запустилось — открываю браузером")
+
+        from .ui.panel_window import open_panel as open_window
         try:
             open_window(url, profile_dir=config.data_dir() / "panel-profile")
         except Exception:
             # без панели программа остаётся живой в трее, но пользователь
             # видит только иконку и не понимает, почему — поэтому в лог
             log.exception("панель не открылась: %s", url)
+
+    def _spawn_panel(self, url: str) -> subprocess.Popen:
+        """Процесс окна панели: сам exe с флагом, а из исходников — run.py."""
+        if getattr(sys, "frozen", False):
+            args = [sys.executable, "--panel", url]
+        else:
+            # из исходников точка входа — тот же run.py, которым запустили
+            # приложение; вычислять её от __file__ нельзя: модуль лежит в
+            # распакованном бандле, а не в репозитории
+            args = [sys.executable, str(Path(sys.argv[0]).resolve()), "--panel", url]
+        log.info("окно панели: %s", " ".join(args[-2:]))
+        # Вывод процесса уводим в файл: у отсоединённого окна нет консоли, и
+        # без этого падение движка не оставляет никаких следов.
+        out = open(config.data_dir() / "panel-window.log", "a", encoding="utf-8")
+        return subprocess.Popen(args, close_fds=True, stdout=out, stderr=out,
+                                creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
 
     def start(self) -> None:
         self.server.start()
@@ -207,6 +245,13 @@ class Application:
 
     def stop(self) -> None:
         self._stop.set()
+        # Окно панели — отдельный процесс, и само оно о выходе не узнает:
+        # закрываем вместе с приложением, иначе останется висеть без сервера.
+        if self._panel and self._panel.poll() is None:
+            try:
+                self._panel.terminate()
+            except Exception:
+                log.debug("окно панели не закрылось", exc_info=True)
         self.storage.log_event("app_stop", {"version": VERSION})
         self.registry.stop_all()
         self.sim.stop()

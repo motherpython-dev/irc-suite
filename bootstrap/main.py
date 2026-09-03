@@ -6,6 +6,7 @@ sys.path, запустить приложение, проследить за у�
 """
 from __future__ import annotations
 
+import json
 import logging
 import sys
 import threading
@@ -39,15 +40,75 @@ def _single_instance() -> bool:
         return False
 
 
+def _panel_mode(url: str) -> int:
+    """Окно панели отдельным процессом (`iRC.exe --panel <url>`).
+
+    Главный поток приложения занят циклом Tk — на нём живут оверлеи, — а
+    WebView2 требует своего цикла сообщений. Поэтому окно панели выносим в
+    отдельный процесс: заодно её падение не уносит рейс-контрол.
+    """
+    _setup_logging()
+    log = logging.getLogger("panel")
+    log.info("окно панели: открываю %s", url)
+    version = paths.read_pointer().get("current") or CORE_VERSION
+    bundle = paths.version_dir(version)
+    sys.path.insert(0, str(bundle))
+    try:
+        from suite.core.ui.panel_native import run
+    except Exception:
+        log.error("панель не загрузилась: %s", traceback.format_exc())
+        return 2
+    icon = bundle / "suite" / "assets" / "icon.ico"
+    try:
+        code = run(url, icon=icon, storage=paths.data_dir() / "panel-webview")
+        log.info("окно панели закрыто")
+        return code
+    except Exception:
+        log.error("окно панели упало: %s", traceback.format_exc())
+        return 3
+
+
+def _panel_port() -> int:
+    """Порт панели из настроек: у второго экземпляра своего ядра ещё нет."""
+    try:
+        cfg = json.loads((paths.data_dir() / "config.json").read_text("utf-8"))
+        return int(cfg.get("http_port") or 8777)
+    except Exception:
+        return 8777
+
+
+def _show_running_panel(log) -> None:
+    """Попросить уже запущенный экземпляр показать своё окно.
+
+    Раньше здесь открывался браузер — и вместо родного окна пользователь
+    получал вкладку. Работающий экземпляр умеет поднять своё окно сам.
+    """
+    url = f"http://127.0.0.1:{_panel_port()}/api/panel"
+    try:
+        import urllib.request
+        urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST"),
+                               timeout=5).read()
+        return
+    except Exception:
+        log.warning("не достучался до запущенного экземпляра — открываю браузером")
+    import webbrowser
+    webbrowser.open(url.replace("/api/panel", "/"))
+
+
 def main() -> int:
+    if "--panel" in sys.argv:
+        i = sys.argv.index("--panel")
+        if i + 1 >= len(sys.argv):
+            return 2
+        return _panel_mode(sys.argv[i + 1])
+
     log_path = _setup_logging()
     log = logging.getLogger("bootstrap")
     log.info("ядро %s, запуск", CORE_VERSION)
 
     if not _single_instance():
-        log.info("экземпляр уже запущен — открываю панель")
-        import webbrowser
-        webbrowser.open("http://127.0.0.1:8777/")
+        log.info("экземпляр уже запущен — показываю его панель")
+        _show_running_panel(log)
         return 0
 
     updater = Updater()

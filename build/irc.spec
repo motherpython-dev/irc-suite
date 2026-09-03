@@ -4,18 +4,30 @@
 # Логика приложения дальше обновляется бандлами — exe перевыпускается редко.
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_all
+
 ROOT = Path(SPECPATH).parent
+
+# Панель показывается родным окном на WebView2 (см. suite/core/ui/panel_native.py).
+# pywebview тянет за собой .NET-мост pythonnet и сборки WebView2 — их PyInstaller
+# сам не находит, поэтому забираем пакеты целиком.
+wv_datas, wv_binaries, wv_hidden = [], [], []
+for pkg in ("webview", "clr_loader", "pythonnet"):
+    d, b, h = collect_all(pkg)
+    wv_datas += d
+    wv_binaries += b
+    wv_hidden += h
 
 a = Analysis(
     [str(ROOT / 'run.py')],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=wv_binaries,
     datas=[
         (str(ROOT / 'app'), 'seed'),            # вшитый стартовый бандл
         (str(ROOT / 'assets' / 'icon.ico'), 'assets'),
         (str(ROOT / 'assets' / 'logo-irc.png'), 'assets'),  # знак iRC для оверлея
         (str(ROOT / 'assets' / 'fonts'), 'assets/fonts'),  # Inter/Rubik (OFL)
-    ],
+    ] + wv_datas,
     # ВАЖНО: бандл racecontrol загружается ДИНАМИЧЕСКИ из %LOCALAPPDATA% и в
     # анализ не попадает — PyInstaller не видит его импортов. Поэтому всё, что
     # использует бандл, перечисляем здесь руками. Забыл модуль -> exe падает
@@ -32,7 +44,10 @@ a = Analysis(
         'webbrowser', 'collections.abc', 'typing',
         # оверлей
         'tkinter', 'tkinter.font', 'tkinter.constants',
-    ],
+        # родное окно панели
+        'webview', 'webview.platforms.edgechromium', 'clr', 'clr_loader',
+        'bottle', 'proxy_tools',
+    ] + wv_hidden,
     hookspath=[],
     runtime_hooks=[],
     excludes=['matplotlib', 'numpy', 'pytest'],   # tkinter нужен оверлею
