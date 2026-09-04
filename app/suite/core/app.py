@@ -198,9 +198,18 @@ class Application:
 
         try:
             self._panel = self._spawn_panel(url)
-            return
+            code = self._panel.poll()
+            if code is None:
+                time.sleep(2.0)          # успел бы упасть — упал бы сразу
+                code = self._panel.poll()
+            if code is None:
+                return
+            log.error("процесс окна панели умер сразу, код %s — открываю браузером",
+                      code)
+            self._trace(f"панель умерла, код {code}")
         except Exception:
             log.exception("родное окно панели не запустилось — открываю браузером")
+            self._trace("панель не запустилась: исключение")
 
         from .ui.panel_window import open_panel as open_window
         try:
@@ -209,6 +218,16 @@ class Application:
             # без панели программа остаётся живой в трее, но пользователь
             # видит только иконку и не понимает, почему — поэтому в лог
             log.exception("панель не открылась: %s", url)
+
+    @staticmethod
+    def _trace(event: str) -> None:
+        """След в startup.log — тот же файл, что ведёт точка входа."""
+        try:
+            import os
+            with open(config.data_dir() / "startup.log", "a", encoding="utf-8") as f:
+                f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {os.getpid()} {event}\n")
+        except Exception:
+            pass
 
     @staticmethod
     def _close_panel_tree(pid: int) -> None:
@@ -252,6 +271,8 @@ class Application:
         self.registry.start_enabled(self._make_ctx)
         threading.Thread(target=self._broadcast_loop, daemon=True, name="push").start()
         self.storage.log_event("app_start", {"version": VERSION})
+        self._trace(f"старт ядра, окно панели при запуске: "
+                    f"{bool(self.cfg.get('open_panel_on_start'))}")
         if self.cfg.get("open_panel_on_start"):
             self.open_panel()
 

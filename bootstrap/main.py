@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
+import time
 import threading
 import traceback
 from pathlib import Path
@@ -16,6 +18,22 @@ from pathlib import Path
 from . import paths
 from .updater import Updater
 from .version import CORE_VERSION
+
+
+def trace(event: str) -> None:
+    """Записать след старта в обход logging.
+
+    Бывали запуски, после которых в irc.log не появлялось ни строки, хотя
+    программа работала. Пока причина не найдена, ведём отдельный простой
+    файл: открыли, дописали, закрыли — без обработчиков и буферов.
+    """
+    try:
+        line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {os.getpid()} {event}\n"
+        with open(paths.data_dir() / "startup.log", "a", encoding="utf-8") as f:
+            f.write(line)
+            f.flush()
+    except Exception:
+        pass
 
 
 def _setup_logging() -> Path:
@@ -96,6 +114,7 @@ def _show_running_panel(log) -> None:
 
 
 def main() -> int:
+    trace(f"старт argv={sys.argv[1:]} exe={sys.executable}")
     if "--panel" in sys.argv:
         i = sys.argv.index("--panel")
         if i + 1 >= len(sys.argv):
@@ -105,6 +124,7 @@ def main() -> int:
     log_path = _setup_logging()
     log = logging.getLogger("bootstrap")
     log.info("ядро %s, запуск", CORE_VERSION)
+    trace(f"логи пишутся в {log_path}")
 
     if not _single_instance():
         log.info("экземпляр уже запущен — показываю его панель")
