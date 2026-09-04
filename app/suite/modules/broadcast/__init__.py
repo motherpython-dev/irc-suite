@@ -19,6 +19,32 @@ from ...core.modules import Context
 WEB = Path(__file__).resolve().parents[2] / "web"
 
 
+# Биты SessionFlags из irSDK. Нужны только те, что меняют цвет полосы.
+FLAG_CHECKERED = 0x00000001
+FLAG_WHITE = 0x00000002
+FLAG_GREEN = 0x00000004
+FLAG_YELLOW = 0x00000008
+FLAG_RED = 0x00000010
+FLAG_CAUTION = 0x00004000
+FLAG_CAUTION_WAVING = 0x00008000
+
+
+def _flag_name(bits: int) -> str:
+    """Флаг сессии одним словом — для цвета полосы вдоль пилона."""
+    bits = int(bits or 0)
+    if bits & FLAG_CHECKERED:
+        return "checkered"
+    if bits & FLAG_RED:
+        return "red"
+    if bits & (FLAG_YELLOW | FLAG_CAUTION | FLAG_CAUTION_WAVING):
+        return "yellow"
+    if bits & FLAG_WHITE:
+        return "white"
+    if bits & FLAG_GREEN:
+        return "green"
+    return "none"
+
+
 class PitTracker:
     """Счёт пит-стопов по всему полю.
 
@@ -293,6 +319,9 @@ class BroadcastModule:
             "title": cfg.get("tower_title", ""),
             "rows": shown,
             "total": len(rows),
+            "flag": _flag_name(snap.session_flags),
+            "lap": max((r["lap"] for r in rows), default=0),
+            "laps_total": int(cfg.get("laps_total", 0)),
         }
 
     # ---------- остальные оверлеи ----------
@@ -392,6 +421,7 @@ class BroadcastModule:
                 "position": r["position"],
                 "car_number": r["car_number"],
                 "name": r["name"],
+                "class_name": r.get("class_name", ""),
                 "count": len(stops),
                 "last": stops[-1] if stops else None,
                 "total": round(sum(x["duration"] for x in stops), 1),
