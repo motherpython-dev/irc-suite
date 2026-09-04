@@ -322,8 +322,12 @@ class BroadcastModule:
 
     def commentators(self) -> dict:
         c = self.ctx.config
+        people = c.get("commentators", [])[:2]
+        if not people:
+            # в демо плашка пустой не нужна: её показывают ради вёрстки
+            people = self.ctx.sim.demo_hints().get("commentators", [])
         return {"visible": self.is_visible("commentators"),
-                "people": c.get("commentators", [])[:2],
+                "people": people,
                 "caption": c.get("comm_caption", "")}
 
     def set_commentators(self, data: dict) -> dict:
@@ -351,6 +355,9 @@ class BroadcastModule:
         секунды. Для пары, идущей не подряд, берём разницу их значений.
         """
         pair = [str(x).lstrip("#") for x in self.ctx.config.get("delta_pair", [])][:2]
+        if len(pair) < 2:
+            # в демо берём борьбу за лидерство, иначе оверлей нечем проверить
+            pair = self.ctx.sim.demo_hints().get("delta_pair", pair)
         by_num = {r["car_number"]: r for r in self._rows}
         rows = [by_num.get(n) for n in pair]
         if len(rows) < 2 or not all(rows):

@@ -57,6 +57,9 @@ class Snapshot:
     positions: list[dict[str, Any]] = field(default_factory=list)
 
 
+DEMO_TRACK = "Sebring International Raceway"
+
+
 class SimClient:
     """Опрос сима в фоновом потоке. Наружу — потокобезопасный snapshot()."""
 
@@ -68,7 +71,9 @@ class SimClient:
         # Допуск в секундах для определения "мы смотрим настоящее".
         self.live_time_tolerance = live_time_tolerance
         self._max_session_time = 0.0
-        self._stale_ticks = 0          # тиков подряд с мёртвой телеметрией
+        self._stale_ticks = 0      # тиков подряд с мёртвой телеметрией
+        self.demo = False          # синтетическая гонка вместо чтения сима
+        self._demo = None
         self._last_tick = None
 
         self.ir = irsdk.IRSDK() if irsdk else None
@@ -86,6 +91,36 @@ class SimClient:
         self.on_mode_change = None      # callable(old, new)
 
     # ---------- жизненный цикл ----------
+
+    def set_demo(self, on: bool) -> None:
+        """Включить синтетическую гонку вместо чтения сима.
+
+        Нужна для проверки оверлеев без запущенного iRacing: вёрстку не на чем
+        смотреть, когда все массивы пустые. Данные правдоподобные по форме, но
+        выдуманные — для детекта инцидентов не годятся.
+        """
+        on = bool(on)
+        if on == self.demo:
+            return
+        if on:
+            from .demo import DemoRace
+            self._demo = DemoRace()
+            self._drivers = {
+                idx: Driver(car_idx=idx, car_number=num, name=name, team=team,
+                            car_class=cls_id, class_name=cls_name)
+                for idx, num, name, team, cls_id, cls_name in self._demo.drivers()
+            }
+        else:
+            self._demo = None
+            self._drivers = {}
+        self.demo = on
+
+    def demo_hints(self) -> dict:
+        """Чем заполнить оверлеи, которым нужны настройки, пока их не задали."""
+        if not (self.demo and self._demo):
+            return {}
+        return {"commentators": self._demo.commentators(),
+                "delta_pair": self._demo.delta_pair()}
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._loop, daemon=True, name="simclient")
@@ -249,6 +284,8 @@ class SimClient:
         ResultsPositions (в квалификации их не было). В повторе значения
         относятся к просматриваемому кадру — модуль решает, показывать их или нет.
         """
+        if self.demo and self._demo:
+            return self._demo.timing()
         try:
             pos = self.ir["CarIdxPosition"] or []
             cls_pos = self.ir["CarIdxClassPosition"] or []
@@ -309,6 +346,8 @@ class SimClient:
         нет (гонка без квалификации, присоединились позже), вызывающий код
         падает на текущие позиции — здесь возвращаем пусто.
         """
+        if self.demo and self._demo:
+            return self._demo.qualifying_grid()
         info = self._session_info or {}
         best = None
         for sess in (info.get("Sessions") or []):
@@ -410,6 +449,8 @@ class SimClient:
             time.sleep(self.poll_interval)
 
     def _tick(self) -> None:
+        if self.demo:
+            return self._demo_tick()
         if not self.ir:
             return
         if not (self.ir.is_initialized and self.ir.is_connected):
@@ -494,6 +535,30 @@ class SimClient:
             self._notify_mode(self._snap.mode)
         finally:
             self.ir.unfreeze_var_buffer_latest()
+
+    def _demo_tick(self) -> None:
+        """Снимок синтетической гонки — той же формы, что и настоящий."""
+        demo = self._demo
+        if demo is None:
+            return
+        demo.tick()
+        with self._lock:
+            self._snap = Snapshot(
+                mode=MODE_LIVE,
+                connected=True,
+                session_num=0,
+                session_time=time.monotonic() - demo.started,
+                session_tick=int((time.monotonic() - demo.started) * 60),
+                player_car_idx=-1,
+                results_available=True,
+                spectator=True,
+                session_state=4,             # гонка идёт
+                track=DEMO_TRACK,
+                subsession_id=0,
+                drivers=list(self._drivers.values()),
+                positions=[],
+            )
+        self._notify_mode(MODE_LIVE)
 
     def _refresh_session_info(self, period: float = 1.0) -> None:
         now = time.monotonic()

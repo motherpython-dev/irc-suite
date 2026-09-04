@@ -117,6 +117,7 @@ class Application:
             "modules": self.registry.statuses(),
             "lan_url": self.server.lan_url,
             "allow_lan": bool(self.cfg.get("allow_lan", False)),
+            "demo": bool(self.sim.demo),
         }
 
     def drivers(self) -> list[dict]:
@@ -180,6 +181,18 @@ class Application:
         self.hub.publish("state", self.state())
 
     # ---------- жизненный цикл ----------
+
+    def set_demo(self, on: bool) -> dict:
+        """Включить синтетическую гонку для проверки оверлеев.
+
+        В конфиг НЕ сохраняем: демо, забытое включённым, во время реальной
+        гонки увело бы рейс-контрол на выдуманные данные. После перезапуска
+        программа всегда читает сим.
+        """
+        self.sim.set_demo(bool(on))
+        self.storage.log_event("demo", {"on": bool(on)})
+        self._push_state()
+        return {"ok": True, "demo": bool(self.sim.demo)}
 
     def open_panel(self, path: str = "") -> None:
         """Показать панель родным окном на WebView2.
