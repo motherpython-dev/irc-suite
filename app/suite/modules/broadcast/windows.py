@@ -82,6 +82,7 @@ class TowerWindow(OverlayWindow):
     WIDTH = 340
     TITLE = "iRC Tower"
     CONFIG_PREFIX = "tower"
+    ENTER = "left"        # пилон выезжает от левого края, как на трансляции
 
     HEAD_H = 30
     ROW_H = 27
@@ -220,6 +221,7 @@ class GridWindow(BroadcastHead, OverlayWindow):
     WIDTH = 560
     TITLE = "iRC Grid"
     CONFIG_PREFIX = "grid"
+    ENTER = "up"        # решётка поднимается снизу
 
     def build(self) -> None:
         self.bcast_head(self.cfg.get("grid_title") or "стартовая решётка", self.WIDTH)
@@ -289,6 +291,7 @@ class CommentatorsWindow(OverlayWindow):
     WIDTH = 470
     TITLE = "iRC Commentators"
     CONFIG_PREFIX = "commentators"
+    ENTER = "up"        # нижняя треть всегда приходит снизу
 
     def build(self) -> None:
         self.panel.configure(highlightthickness=0)
@@ -356,6 +359,7 @@ class DeltaWindow(BroadcastHead, OverlayWindow):
     WIDTH = 300
     TITLE = "iRC Delta"
     CONFIG_PREFIX = "delta"
+    ENTER = "right"        # дельта живёт справа — оттуда и выезжает
 
     def build(self) -> None:
         self.bcast_head("разрыв", self.WIDTH)
@@ -422,6 +426,7 @@ class PitsWindow(BroadcastHead, OverlayWindow):
     WIDTH = 360
     TITLE = "iRC Pits"
     CONFIG_PREFIX = "pits"
+    ENTER = "right"        # пит-репорт приходит с той же стороны, что дельта
 
     def build(self) -> None:
         self.bcast_head(self.cfg.get("pits_title") or "пит-стопы", self.WIDTH)

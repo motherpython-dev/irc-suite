@@ -12,9 +12,14 @@
 
 Окно перетаскивается за любую точку шапки, позиция запоминается в конфиге
 модуля — режиссёр раскладывает графику по экрану один раз.
+
+Появление и уход анимированы: графика, возникающая мгновенно, в эфире
+выглядит как сбой картинки. Окно выезжает со сдвигом и проявляется, уходит
+тем же путём назад. Направление задаёт наследник через ENTER.
 """
 from __future__ import annotations
 
+import time
 import tkinter as tk
 
 from ...modules.racecontrol.overlay import (  # общий UI-kit живёт там
@@ -34,6 +39,11 @@ class OverlayWindow:
     TITLE = "iRC"
     CONFIG_PREFIX = "ov"
 
+    # Откуда выезжает окно: "left", "right", "up", "down" или "fade".
+    ENTER = "left"
+    ANIM_MS = 220               # длительность появления
+    ANIM_SHIFT = 26             # на сколько пикселей сдвигается при выезде
+
     def __init__(self, module, host_root=None, config_key: str | None = None):
         self.module = module
         self.cfg = module.ctx.config
@@ -41,6 +51,8 @@ class OverlayWindow:
         self.visible = False
         self._drag = (0, 0)
         self._keep: list = []
+        self._anim = None            # id запланированного шага анимации
+        self._home = None            # куда окно возвращается после выезда
 
         register_bundled_fonts()
         self.f_display = pick_font("Rubik", "Inter")
@@ -102,6 +114,7 @@ class OverlayWindow:
     def _drag_move(self, e) -> None:
         x, y = e.x_root - self._drag[0], e.y_root - self._drag[1]
         self.root.geometry(f"+{x}+{y}")
+        self._home = (x, y)
         self.cfg.setdefault("positions", {})[self.key] = {"x": x, "y": y}
 
     # ---------- показ ----------
@@ -110,14 +123,92 @@ class OverlayWindow:
         if self.visible:
             return
         self.visible = True
+        self._stop_anim()
+        self._remember_home()
+        self.root.attributes("-alpha", 0.0)
+        self._place(0.0)
         self.root.deiconify()
         self.root.attributes("-topmost", True)
         _apply_no_activate(self.root)
         apply_round_corners(self.root, RADIUS_CARD)
+        self._run_anim(0.0, 1.0)
 
     def hide(self) -> None:
+        if not self.visible:
+            self.root.withdraw()
+            return
         self.visible = False
-        self.root.withdraw()
+        self._stop_anim()
+        self._remember_home()
+        self._run_anim(1.0, 0.0, done=self.root.withdraw)
+
+    # ---------- анимация ----------
+
+    def _remember_home(self) -> None:
+        """Запомнить точку, из которой окно выезжает и куда возвращается."""
+        if self._home is None:
+            pos = self.cfg.get("positions", {}).get(self.key, {})
+            try:
+                x = int(pos.get("x", self.root.winfo_x()))
+                y = int(pos.get("y", self.root.winfo_y()))
+            except Exception:
+                x, y = 40, 120
+            self._home = (x, y)
+
+    def _stop_anim(self) -> None:
+        if self._anim is not None:
+            try:
+                self.root.after_cancel(self._anim)
+            except Exception:
+                pass
+            self._anim = None
+
+    def _place(self, p: float) -> None:
+        """Поставить окно в точку по ходу анимации: p=0 — вне, p=1 — на месте."""
+        if not self._home:
+            return
+        x, y = self._home
+        shift = int(self.ANIM_SHIFT * (1.0 - p))
+        if self.ENTER == "left":
+            x -= shift
+        elif self.ENTER == "right":
+            x += shift
+        elif self.ENTER == "up":
+            y += shift
+        elif self.ENTER == "down":
+            y -= shift
+        self.root.geometry(f"+{x}+{y}")
+        base = float(self.cfg.get("overlay_alpha", 0.96))
+        self.root.attributes("-alpha", max(0.0, min(1.0, base * p)))
+
+    def _run_anim(self, start: float, end: float, done=None) -> None:
+        """Прогнать анимацию между двумя состояниями.
+
+        Кадры считаем от часов, а не от номера шага: при загруженном Tk шаги
+        приходят неравномерно, и счёт по номеру давал бы рывки.
+        """
+        if not bool(self.cfg.get("animate", True)):
+            self._place(end)
+            if done:
+                done()
+            return
+
+        started = time.monotonic()
+        dur = max(0.05, self.ANIM_MS / 1000.0)
+
+        def step():
+            t = min(1.0, (time.monotonic() - started) / dur)
+            # ease-out: быстро стартует, мягко останавливается
+            eased = 1.0 - (1.0 - t) ** 3
+            self._place(start + (end - start) * eased)
+            if t < 1.0:
+                self._anim = self.root.after(16, step)
+                return
+            self._anim = None
+            if done:
+                done()
+
+        step()
 
     def set_visible(self, visible: bool) -> None:
         self.show() if visible else self.hide()
