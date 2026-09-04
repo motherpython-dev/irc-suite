@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import time
 import tkinter as tk
 
 from . import style as st
@@ -216,72 +217,129 @@ class TowerWindow(OverlayWindow):
 
 
 class GridWindow(BroadcastHead, OverlayWindow):
-    """Стартовая решётка: нечётные слева, чётные справа."""
+    """Стартовая решётка: два ряда, как машины стоят на старте.
 
-    WIDTH = 560
+    На странице десять мест — столько читается с экрана без напряжения. Если
+    заявлено больше, страницы листаются сами: зритель успевает прочитать
+    десятку, а режиссёру не нужно ничего нажимать.
+    """
+
+    WIDTH = 880
     TITLE = "iRC Grid"
     CONFIG_PREFIX = "grid"
     ENTER = "up"        # решётка поднимается снизу
 
+    PAGE = 10           # мест на странице
+    PAGE_MS = 15000     # сколько держим страницу
+    ROW_H = 58
+
     def build(self) -> None:
         self.bcast_head(self.cfg.get("grid_title") or "стартовая решётка", self.WIDTH)
-        self.body = tk.Frame(self.panel, bg=BG)
+        self.body = tk.Frame(self.panel, bg=st.BG)
         self.body.pack(fill="both", expand=True)
-        self.left = tk.Frame(self.body, bg=BG)
-        self.left.pack(side="left", fill="both", expand=True)
-        self.right = tk.Frame(self.body, bg=BG)
+        self.left = tk.Frame(self.body, bg=st.BG)
+        self.left.pack(side="left", fill="both", expand=True, padx=(0, 3))
+        self.right = tk.Frame(self.body, bg=st.BG)
         self.right.pack(side="left", fill="both", expand=True)
-        self.foot = tk.Label(self.panel, bg=SURFACE, fg=LIGHT, anchor="w",
-                             font=(self.f_ui, 7), padx=10, pady=3)
+        self.foot = tk.Label(self.panel, bg=st.SURFACE, fg=st.DIM, anchor="w",
+                             font=("Bahnschrift Condensed", 9), padx=12, pady=5)
         self.foot.pack(fill="x")
-        self._cells: dict[int, dict] = {}
-        self._count = -1
+
+        self._cells: list[dict] = []
+        self._page = 0
+        self._page_at = time.monotonic()
+        self._sig = None
+
+    def show(self) -> None:
+        # каждый выход в эфир начинаем с первой страницы, иначе зритель
+        # увидит середину списка без начала
+        self._page = 0
+        self._page_at = time.monotonic()
+        super().show()
 
     def _cell(self, parent) -> dict:
-        f = tk.Frame(parent, bg=SURFACE)
-        f.pack(fill="x", pady=1)
-        pos = tk.Label(f, width=2, bg=SURFACE, fg=st.DIM, anchor="e",
-                       font=("Bahnschrift SemiBold Condensed", 11))
-        pos.pack(side="left", padx=(8, 4), pady=3)
-        num = tk.Label(f, bg=SURFACE, borderwidth=0)
-        num.pack(side="left", padx=2)
-        name = tk.Label(f, bg=SURFACE, fg=st.FG, anchor="w",
-                        font=("Bahnschrift SemiBold Condensed", 11))
-        name.pack(side="left", fill="x", expand=True, padx=(8, 0))
-        t = tk.Label(f, bg=SURFACE, fg=st.DIM, anchor="e", width=9,
-                     font=("Bahnschrift Condensed", 10))
-        t.pack(side="right", padx=8)
-        return {"frame": f, "pos": pos, "num": num, "name": name, "time": t}
+        f = tk.Frame(parent, bg=st.SURFACE, height=self.ROW_H)
+        f.pack(fill="x", pady=2)
+        f.pack_propagate(False)
+        pos = tk.Label(f, width=2, bg=st.SURFACE, fg="#FFFFFF", anchor="e",
+                       font=("Bahnschrift SemiBold Condensed", 20))
+        pos.pack(side="left", padx=(14, 8))
+        num = tk.Label(f, bg=st.SURFACE, borderwidth=0)
+        num.pack(side="left", padx=4)
+        box = tk.Frame(f, bg=st.SURFACE)
+        box.pack(side="left", fill="both", expand=True, padx=(10, 0))
+        name = tk.Label(box, bg=st.SURFACE, fg=st.FG, anchor="w",
+                        font=("Bahnschrift SemiBold Condensed", 15))
+        name.pack(fill="x", pady=(7, 0))
+        team = tk.Label(box, bg=st.SURFACE, fg=st.DIM, anchor="w",
+                        font=("Bahnschrift Condensed", 9))
+        team.pack(fill="x", pady=(0, 6))
+        t = tk.Label(f, bg=st.SURFACE, fg=st.DIM, anchor="e", width=8,
+                     font=("Bahnschrift SemiBold Condensed", 13))
+        t.pack(side="right", padx=12)
+        self.make_draggable(f, box)
+        return {"frame": f, "pos": pos, "num": num, "name": name,
+                "team": team, "time": t, "key": None}
 
     def refresh(self) -> None:
         data = self.module.grid()
         rows = data["rows"]
-        for i, r in enumerate(rows):
-            if i not in self._cells:
-                self._cells[i] = self._cell(self.left if i % 2 == 0 else self.right)
-            c = self._cells[i]
-            c["frame"].pack(fill="x", pady=1)
-            c["pos"].configure(text=str(r["position"]))
-            img = st.num_chip_png(r["car_number"], r.get("class_name") or "", 30, 18)
-            c["num"].configure(image=img)
-            c["num"].image = img            # иначе картинку соберёт GC
-            c["name"].configure(text=st.surname(r["name"])[:16])
-            if i == 0:
+        pages = max(1, (len(rows) + self.PAGE - 1) // self.PAGE)
+
+        # листаем сами: страница держится PAGE_MS, потом уходит следующая
+        if pages > 1 and (time.monotonic() - self._page_at) * 1000 >= self.PAGE_MS:
+            self._page = (self._page + 1) % pages
+            self._page_at = time.monotonic()
+        self._page = min(self._page, pages - 1)
+
+        page_rows = rows[self._page * self.PAGE:(self._page + 1) * self.PAGE]
+
+        while len(self._cells) < self.PAGE:
+            i = len(self._cells)
+            self._cells.append(self._cell(self.left if i % 2 == 0 else self.right))
+
+        for i, c in enumerate(self._cells):
+            if i >= len(page_rows):
+                c["frame"].pack_forget()
+                continue
+            r = page_rows[i]
+            c["frame"].pack(fill="x", pady=2)
+            pole = r["position"] == 1
+            bg = "#22160E" if pole else st.SURFACE
+            for key in ("frame", "pos", "num", "name", "team", "time"):
+                c[key].configure(bg=bg)
+            c["name"].master.configure(bg=bg)
+
+            key = (r["position"], r["car_number"], r.get("class_name"))
+            if key != c["key"]:
+                c["key"] = key
+                img = st.num_chip_png(r["car_number"], r.get("class_name") or "",
+                                      44, 26)
+                c["num"].configure(image=img)
+                c["num"].image = img          # иначе картинку соберёт GC
+            c["pos"].configure(text=str(r["position"]),
+                               fg=st.ACCENT_2 if pole else "#FFFFFF")
+            c["name"].configure(text=st.surname(r["name"])[:18])
+            c["team"].configure(text=(r.get("team") or "").upper()[:26])
+            if pole:
                 c["time"].configure(text=fmt_lap(r["time"]), fg=LIVE_C)
             else:
                 c["time"].configure(
                     text=(f"+{r['delta']:.3f}" if r.get("delta") else fmt_lap(r["time"])),
-                    fg=DIM)
-        for i, c in self._cells.items():
-            if i >= len(rows):
-                c["frame"].pack_forget()
+                    fg=st.DIM)
 
-        if len(rows) != self._count:
-            self._count = len(rows)
-            self.foot.configure(
-                text="по результатам квалификации" if data["source"] == "qualifying"
-                else "квалификации нет — показан текущий порядок")
-            self.meta.configure(text=(data.get("track") or "").upper()[:22])
+        first = self._page * self.PAGE + 1
+        last = first + len(page_rows) - 1
+        self.meta.configure(text=(data.get("track") or "").upper()[:24])
+        self.foot.configure(
+            text=("ПО РЕЗУЛЬТАТАМ КВАЛИФИКАЦИИ" if data["source"] == "qualifying"
+                  else "КВАЛИФИКАЦИИ НЕТ — ТЕКУЩИЙ ПОРЯДОК")
+                 + (f"    ·    МЕСТА {first}\u2013{last} ИЗ {len(rows)}"
+                    f"    ·    СТРАНИЦА {self._page + 1}/{pages}" if pages > 1 else ""))
+
+        sig = (len(page_rows), pages)
+        if sig != self._sig:
+            self._sig = sig
             self.fit()
 
 
@@ -315,7 +373,7 @@ class CommentatorsWindow(OverlayWindow):
         box.pack(side="left", fill="both", expand=True)
         name = tk.Label(box, bg=st.SURFACE, fg="#FFFFFF", anchor="w",
                         font=("Bahnschrift SemiBold Condensed", 15), padx=10)
-        name.pack(fill="x", pady=(5, 0))
+        name.pack(fill="x", pady=(7, 0))
         role = tk.Label(box, bg=st.SURFACE, fg=st.ACCENT_2, anchor="w",
                         font=("Bahnschrift Condensed", 9), padx=11)
         role.pack(fill="x", pady=(0, 6))

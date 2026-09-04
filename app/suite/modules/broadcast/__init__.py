@@ -347,7 +347,9 @@ class BroadcastModule:
                 "source": source,
                 "track": self.ctx.sim.snapshot().track,
                 "title": c.get("grid_title", "стартовая решётка"),
-                "rows": rows[:int(c.get("grid_rows", 24))]}
+                # ограничение щедрое: решётка листается страницами по десять,
+                # и обрезать состав больше незачем
+                "rows": rows[:int(c.get("grid_rows", 60))]}
 
     def commentators(self) -> dict:
         c = self.ctx.config
@@ -443,7 +445,7 @@ class BroadcastModule:
                 "focus_car": c.get("focus_car", ""),
                 "refresh_hz": c.get("refresh_hz", 3),
                 "grid_title": c.get("grid_title", "стартовая решётка"),
-                "grid_rows": c.get("grid_rows", 24),
+                "grid_rows": c.get("grid_rows", 60),
                 "delta_pair": c.get("delta_pair", []),
                 "pits_title": c.get("pits_title", "пит-стопы"),
                 "pits_rows": c.get("pits_rows", 12),
