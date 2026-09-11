@@ -22,6 +22,7 @@ let spec = null, specVer = null, data = null;
 let shown = null, hideTimer = null;     // null — состояние ещё не отправлено
 let page = 0, pageAt = Date.now();
 let built = null;                   // построенное дерево
+let locked = false;                 // редактор подал своё описание — с сервера не перечитываем
 let lastSize = '';
 
 // ---------- утилиты ----------
@@ -151,10 +152,11 @@ function styleText(el, e){
                           : e.align === 'center' ? 'center' : 'flex-start';
 }
 
-function buildElements(container, elements){
+function buildElements(container, elements, sect){
   return (elements || []).map(e => {
     const el = mk('el el-' + e.type, container);
     el.dataset.id = e.id || '';
+    el.dataset.sect = sect || '';     // редактор находит элемент по разделу и id
     place(el, e);
     if(e.type === 'image'){
       const img = document.createElement('img');
@@ -210,7 +212,7 @@ function buildLayer(parent, def, width, cls){
   const bg = mk('bg', box);
   bg.style.background = color((def.bg || {}).fill) || 'transparent';
   shapeCss(bg, (def.bg || {}).shape, (def.bg || {}).radius, def.height);
-  return {box, def, els: buildElements(box, def.elements)};
+  return {box, def, els: buildElements(box, def.elements, cls === 'head' ? 'header' : 'footer')};
 }
 
 function bodyWidth(){
@@ -223,7 +225,17 @@ function bodyWidth(){
   return spec.width || 300;
 }
 
+// Свои шрифты из описания: {family, src}. Загружаются редактором.
+function fontFaces(){
+  let st = document.getElementById('ff');
+  if(!st){ st = document.createElement('style'); st.id = 'ff'; document.head.appendChild(st); }
+  st.textContent = (spec.font_faces || []).map(f =>
+    `@font-face{font-family:'${String(f.family).replace(/'/g, '')}';src:url('${f.src}');font-display:block}`
+  ).join('\n');
+}
+
 function build(){
+  fontFaces();
   root.innerHTML = '';
   const width = bodyWidth();
   const frame = mk('frame', root);
@@ -245,7 +257,7 @@ function build(){
     body.style.height = (b.height || 100) + 'px';
     const bg = mk('bg', body);
     bg.style.background = color((b.bg || {}).fill) || 'transparent';
-    built.single = buildElements(body, b.elements);
+    built.single = buildElements(body, b.elements, 'body');
   }
 }
 
@@ -306,7 +318,7 @@ function render(){
         const bg = mk('bg', box);
         shapeCss(bg, (it.bg || {}).shape, (it.bg || {}).radius, it.height);
         const edge = mk('edge', box);
-        n = {box, bg, edge, els: buildElements(box, it.elements), last: {}, fresh: true};
+        n = {box, bg, edge, els: buildElements(box, it.elements, 'item'), last: {}, fresh: true};
         built.items.set(key, n);
       }
       const st = itemStates(item, rootd);
@@ -396,6 +408,7 @@ function report(){
 // ---------- опрос ----------
 
 async function loadSpec(){
+  if(locked) return;
   try{
     const s = await (await fetch('/api/broadcast/spec?id=' + OV)).json();
     if(!s || s.ok === false) return;
@@ -417,7 +430,13 @@ async function pull(){
 
 // для редактора: принять описание без сохранения
 window.irOverlay = {
-  apply(s){ spec = s; specVer = s.version; root.dataset.enter = s.enter || 'fade'; build(); render(); },
+  apply(s){
+    locked = true;
+    spec = s; specVer = s.version; root.dataset.enter = s.enter || 'fade';
+    build(); render();
+  },
+  // раскладка для редактора: где стоит оверлей внутри страницы
+  frame(){ return built && built.frame; },
 };
 
 loadSpec().then(pull);

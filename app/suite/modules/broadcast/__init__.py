@@ -642,12 +642,40 @@ class BroadcastModule:
             b = body(req)
             return specs.save(str(b.get("id", "")), b.get("spec") or {})
 
+        def query(req, key):
+            from urllib.parse import parse_qs, urlparse
+            return parse_qs(urlparse(req.path).query).get(key, [""])[0]
+
+        def asset_get(req):
+            from . import specs
+            got = specs.read_asset(query(req, "name"))
+            return got if got else ({"ok": False, "error": "not_found"})
+
+        def asset_save(req):
+            from . import specs
+            b = body(req)
+            return specs.save_asset(str(b.get("name", "")), str(b.get("data", "")))
+
+        def spec_reset(req):
+            from . import specs
+            return specs.reset(str(body(req).get("id", "")))
+
+        def assets_list(req):
+            from . import specs
+            return {"assets": specs.list_assets()}
+
         return {
             **{f"GET /ov/{oid}": overlay(oid) for oid, _ in OVERLAYS},
             "GET /ov/render.js": lambda r: ((WEB / "ov" / "render.js").read_bytes(),
                                             "application/javascript; charset=utf-8"),
             "GET /api/broadcast/spec": spec_get,
             "POST /api/broadcast/spec": spec_save,
+            "POST /api/broadcast/spec/reset": spec_reset,
+            "GET /editor": lambda r: ((WEB / "editor.html").read_bytes(),
+                                      "text/html; charset=utf-8"),
+            "GET /ov/asset": asset_get,
+            "GET /api/broadcast/assets": assets_list,
+            "POST /api/broadcast/asset": asset_save,
             "GET /api/broadcast/positions": lambda r: self.positions(),
             "POST /api/broadcast/position": lambda r: self.set_position(body(r)),
             "GET /api/broadcast/tower": lambda r: self.tower(),

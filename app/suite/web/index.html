@@ -278,6 +278,12 @@ function renderView(){
 
     $('#view').innerHTML = `
       <h1>${meta.title}</h1><div class="sub">${meta.desc}</div>
+      <div style="margin:4px 0 14px">
+        <a href="/editor" class="btn" style="display:inline-block;padding:9px 16px;border-radius:10px;
+           background:var(--accent);color:#fff;text-decoration:none;font-weight:600">
+           Редактор оверлеев</a>
+        <span class="state" style="margin-left:10px">размеры, форма ячеек, шрифты, логотипы — мышью на холсте</span>
+      </div>
       <div class="cards">
         <div class="card" style="grid-column:1/-1">
           <h3>Модуль</h3>

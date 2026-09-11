@@ -13,9 +13,11 @@
 """
 from __future__ import annotations
 
+import base64
 import copy
 import json
 import os
+import re
 from pathlib import Path
 
 PALETTE = {
@@ -293,3 +295,73 @@ def save(overlay_id: str, spec: dict) -> dict:
     (user_dir() / f"{overlay_id}.json").write_text(
         json.dumps(clean, ensure_ascii=False, indent=2), "utf-8")
     return {"ok": True, "spec": load(overlay_id)}
+
+
+def reset(overlay_id: str) -> dict:
+    """Вернуть оверлей к исходному виду: удалить файл правок.
+
+    Вызывается только кнопкой «Сбросить» в редакторе, после подтверждения.
+    """
+    if overlay_id not in DEFAULTS:
+        return {"ok": False, "error": "unknown_overlay"}
+    f = user_dir() / f"{overlay_id}.json"
+    if f.exists():
+        f.unlink()
+    return {"ok": True, "spec": load(overlay_id)}
+
+
+# ---------------- шрифты и логотипы ----------------
+
+ASSET_TYPES = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml",
+    ".ttf": "font/ttf", ".otf": "font/otf", ".woff": "font/woff", ".woff2": "font/woff2",
+}
+MAX_ASSET = 10 * 1024 * 1024
+
+
+def _safe_name(name: str) -> str | None:
+    """Имя файла без путей и странных символов; расширение — из разрешённых."""
+    base = os.path.basename(str(name or "")).strip()
+    stem, ext = os.path.splitext(base)
+    ext = ext.lower()
+    if ext not in ASSET_TYPES:
+        return None
+    stem = re.sub(r"[^\w\-. ]+", "_", stem).strip(" .") or "file"
+    return stem[:60] + ext
+
+
+def save_asset(name: str, data_b64: str) -> dict:
+    fname = _safe_name(name)
+    if not fname:
+        return {"ok": False, "error": "bad_type",
+                "message": "Картинки: png, jpg, webp, gif, svg. Шрифты: ttf, otf, woff, woff2."}
+    try:
+        raw = base64.b64decode(str(data_b64).split(",")[-1], validate=False)
+    except Exception:
+        return {"ok": False, "error": "bad_data"}
+    if len(raw) > MAX_ASSET:
+        return {"ok": False, "error": "too_big", "message": "Файл больше 10 МБ."}
+    (assets_dir() / fname).write_bytes(raw)
+    return {"ok": True, "name": fname, "url": f"/ov/asset?name={fname}",
+            "kind": "font" if ASSET_TYPES[os.path.splitext(fname)[1]].startswith("font") else "image"}
+
+
+def list_assets() -> list[dict]:
+    out = []
+    for f in sorted(assets_dir().iterdir()):
+        ext = f.suffix.lower()
+        if f.is_file() and ext in ASSET_TYPES:
+            out.append({"name": f.name, "url": f"/ov/asset?name={f.name}",
+                        "kind": "font" if ASSET_TYPES[ext].startswith("font") else "image"})
+    return out
+
+
+def read_asset(name: str) -> tuple[bytes, str] | None:
+    fname = _safe_name(name)
+    if not fname:
+        return None
+    f = assets_dir() / fname
+    if not f.is_file():
+        return None
+    return f.read_bytes(), ASSET_TYPES[f.suffix.lower()]
