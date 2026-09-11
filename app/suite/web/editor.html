@@ -160,7 +160,8 @@ const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 const OVS = [['tower', 'Башня позиций'], ['grid', 'Стартовая решётка'],
              ['commentators', 'Плашка комментаторов'], ['delta', 'Дельта пилотов'],
              ['pits', 'Пит-стопы']];
-const SECT_LABEL = {header: 'Шапка', item: 'Строка', body: 'Блок', footer: 'Подвал'};
+const SECT_LABEL = {header: 'Шапка', item: 'Строка', body: 'Блок', footer: 'Подвал',
+                    tail: 'Подпись'};
 const TYPE_LABEL = {text: 'Текст', chip: 'Чип', box: 'Плашка', image: 'Картинка'};
 
 // Поля данных для вставки в шаблон — по оверлею и разделу.
@@ -179,6 +180,7 @@ const FIELDS = {
                 ['{$.source|source_label}', 'источник'], ['{$.page}', 'страница'],
                 ['{$.pages}', 'всего страниц'], ['{$.count}', 'всего машин']]},
   commentators: {item: [['{name|upper}', 'имя'], ['{role|upper}', 'роль']],
+                 tail: [['{$.caption|upper}', 'подпись'], ['{$.caption}', 'подпись как есть']],
                  root: [['{$.caption}', 'подпись']]},
   delta: {body: [['{gap|fixed1}', 'разрыв'], ['{trend|trend}', 'тренд'],
                  ['{lead.position}', 'позиция впереди'], ['{lead.car_number}', 'номер впереди'],
@@ -230,7 +232,8 @@ function setPath(o, p, v){
 function sectDef(sect){
   const sp = S.spec;
   return sect === 'header' ? sp.header : sect === 'footer' ? sp.footer
-       : sect === 'item' ? sp.body.item : sect === 'body' ? sp.body : null;
+       : sect === 'item' ? sp.body.item : sect === 'body' ? sp.body
+       : sect === 'tail' ? sp.body.tail : null;
 }
 function elems(sect){ const d = sectDef(sect); if(!d) return []; d.elements ??= []; return d.elements; }
 function selEl(){ return S.sel ? elems(S.sel.sect).find(e => e.id === S.sel.id) : null; }
@@ -238,16 +241,19 @@ function sections(){
   const out = [];
   if(S.spec.header) out.push('header');
   out.push(S.spec.body.type === 'single' ? 'body' : 'item');
+  if(S.spec.body.tail) out.push('tail');
   if(S.spec.footer) out.push('footer');
   return out;
 }
 function sectSize(sect){
   const d = sectDef(sect), sp = S.spec;
-  const w = sect === 'item' && sp.body.type === 'cards' ? (sp.body.item.width || 200)
+  const w = sect === 'tail' ? (d.width || 160)
+          : sect === 'item' && sp.body.type === 'cards' ? (sp.body.item.width || 200)
           : sect === 'item' && sp.body.type === 'grid'
             ? Math.floor(((sp.width || 300) - (sp.body.gap || 0) * ((sp.body.columns || 1) - 1)) / (sp.body.columns || 1))
           : (sp.width || 300);
-  const h = sect === 'body' ? (d.height || 100) : (d.height || 20);
+  const h = sect === 'body' ? (d.height || 100)
+          : sect === 'tail' ? (sp.body.item.height || 40) : (d.height || 20);
   return {w, h};
 }
 
@@ -611,6 +617,13 @@ function overlayPanel(){
       <div class="row"><label>Заливка</label>${colorCtlPath('body.item.bg.fill', (it.bg || {}).fill)}</div>
       <div class="row"><label>Через одну</label>${colorCtlPath('body.item.bg.alt', (it.bg || {}).alt)}</div>
       <div class="row"><label>Форма</label><select data-path="body.item.bg.shape">${opt(SHAPES, (it.bg || {}).shape || 'rect')}</select></div>`;
+    if(b.tail){
+      h += `<h4>Подпись справа</h4>
+        <div class="note">Видна, когда в панели задана подпись.</div>
+        <div class="row"><label>Ширина</label><input type="number" data-path="body.tail.width" value="${b.tail.width || 160}" min="10"></div>
+        <div class="row"><label>Заливка</label>${colorCtlPath('body.tail.bg.fill', (b.tail.bg || {}).fill)}</div>
+        <div class="row"><label>Форма</label><select data-path="body.tail.bg.shape">${opt(SHAPES, (b.tail.bg || {}).shape || 'rect')}</select></div>`;
+    }
   }
 
   h += `<h4>Подвал</h4>`;

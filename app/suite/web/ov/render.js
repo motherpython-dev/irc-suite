@@ -215,12 +215,20 @@ function buildLayer(parent, def, width, cls){
   return {box, def, els: buildElements(box, def.elements, cls === 'head' ? 'header' : 'footer')};
 }
 
+// Хвост карточек: плашка после них, привязанная к корню данных (подпись
+// «в эфире» у комментаторов). Видна по условию when.
+function tailOn(){
+  const t = spec.body.tail;
+  return !!(t && data && cond(t.when, data, data));
+}
+
 function bodyWidth(){
   const b = spec.body;
   if(b.type === 'cards'){
-    const items = get(data, b.items) || [];
-    const n = Math.max(1, items.length);
-    return n * (b.item.width || 200) + (n - 1) * (b.gap || 0);
+    const n = (get(data, b.items) || []).length;
+    let w = n * (b.item.width || 200) + Math.max(0, n - 1) * (b.gap || 0);
+    if(tailOn()) w += (n ? (b.gap || 0) : 0) + (b.tail.width || 160);
+    return Math.max(w, 1);
   }
   return spec.width || 300;
 }
@@ -249,9 +257,20 @@ function build(){
   const stripe = f.flag_stripe ? mk('stripe', frame) : null;
   if(stripe) stripe.style.width = f.flag_stripe + 'px';
   const empty = mk('empty', body);
+  let tail = null;
+  if(spec.body.type === 'cards' && spec.body.tail){
+    const t = spec.body.tail, h = spec.body.item.height || 40;
+    const box = mk('item tail', body);
+    box.style.width = (t.width || 160) + 'px';
+    box.style.height = h + 'px';
+    const bg = mk('bg', box);
+    bg.style.background = color((t.bg || {}).fill) || 'transparent';
+    shapeCss(bg, (t.bg || {}).shape, (t.bg || {}).radius, h);
+    tail = {box, els: buildElements(box, t.elements, 'tail')};
+  }
   const foot = buildLayer(frame, spec.footer, width, 'foot');
 
-  built = {frame, head, body, foot, stripe, empty, width, items: new Map(), single: null};
+  built = {frame, head, body, foot, stripe, empty, width, items: new Map(), single: null, tail};
   if(spec.body.type === 'single'){
     const b = spec.body;
     body.style.height = (b.height || 100) + 'px';
@@ -293,7 +312,8 @@ function render(){
 
   let bodyH = 0;
   const ready = b.ready ? !!get(data, b.ready) : true;
-  const isEmpty = b.type === 'single' ? !ready : !pi.list.length;
+  const isEmpty = b.type === 'single' ? !ready
+                : (!pi.list.length && !(b.type === 'cards' && tailOn()));
   built.empty.textContent = isEmpty ? (b.empty || '') : '';
   built.empty.style.display = isEmpty && b.empty ? '' : 'none';
 
@@ -345,7 +365,17 @@ function render(){
     built.items.forEach((n, key) => {
       if(!seen.has(key)){ n.box.remove(); built.items.delete(key); }
     });
-    const rows = b.type === 'cards' ? (pi.list.length ? 1 : 0) : Math.ceil(pi.list.length / cols);
+    if(built.tail){
+      const on = tailOn();
+      built.tail.box.style.display = on ? '' : 'none';
+      if(on){
+        const n = pi.list.length;
+        built.tail.box.style.transform = `translate(${n ? n * (w + gap) : 0}px,0)`;
+        updateElements(built.tail.els, rootd, rootd, {});
+      }
+    }
+    const rows = b.type === 'cards' ? ((pi.list.length || tailOn()) ? 1 : 0)
+                                    : Math.ceil(pi.list.length / cols);
     bodyH = rows ? rows * it.height + (rows - 1) * gap : 0;
     if(isEmpty && b.empty) bodyH = 40;
   }

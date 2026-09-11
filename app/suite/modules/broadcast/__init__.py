@@ -143,6 +143,7 @@ class BroadcastModule:
         # эфир после запуска пуст: графику выводит режиссёр. Иначе флаги
         # «в эфире» из прошлого запуска расходились с тем, что на экране
         ctx.config["visible"] = {}
+        ctx.config["comm_visible"] = False     # у плашки свой флаг — сбрасываем вместе
         ctx.log.info("оверлеи трансляции запущены (окна по требованию)")
 
     def _ensure_window(self, overlay_id: str):
@@ -367,20 +368,30 @@ class BroadcastModule:
                 "caption": c.get("comm_caption", "")}
 
     def set_commentators(self, data: dict) -> dict:
+        """Имена, подпись и показ плашки из карточки в панели.
+
+        Показ идёт через общий set_visible, как у остальных кнопок: он и
+        поднимает окна оверлеев, и держит флаги в согласии. Раньше здесь
+        ставился только флаг «в эфире» — процесс окон не запускался, и
+        плашка не появлялась.
+        """
         c = self.ctx.config
-        if "visible" in data:
-            self._vis()["commentators"] = bool(data["visible"])
         if "people" in data:
             people = []
             for item in list(data["people"])[:2]:   # больше двух в плашку не влезает
                 people.append({"name": str(item.get("name", "")).strip(),
                                "role": str(item.get("role", "")).strip()})
             c["commentators"] = [x for x in people if x["name"]]
-        for key, cfg_key in (("visible", "comm_visible"),
-                             ("caption", "comm_caption")):
-            if key in data:
-                c[cfg_key] = data[key]
+        if "caption" in data:
+            c["comm_caption"] = str(data["caption"] or "").strip()
         self.ctx.save_config()
+        if "visible" in data:
+            want = bool(data["visible"])
+            current = self.commentators()
+            if want and not current["people"] and not current["caption"]:
+                return {"ok": False, "error": "no_people",
+                        "message": "Впиши хотя бы одно имя — без имён плашке нечего показать."}
+            self.set_visible("commentators", want)
         self.ctx.publish("commentators", self.commentators())
         return {"ok": True, **self.commentators()}
 

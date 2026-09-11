@@ -492,8 +492,9 @@ async function toggleLan(){
 async function loadBroadcast(){
   try{
     const s = await (await fetch('/api/broadcast/settings')).json();
-    const set = (id, v) => { const el = $(id); if(el) el.value = v ?? ''; };
-    const chk = (id, v) => { const el = $(id); if(el) el.checked = !!v; };
+    // поле, которое человек правит, настройками с сервера не затираем
+    const set = (id, v) => { const el = $(id); if(el && !(el.id in edited)) el.value = v ?? ''; };
+    const chk = (id, v) => { const el = $(id); if(el && !(el.id in edited)) el.checked = !!v; };
     set('#b-title', s.tower_title); set('#b-rows', s.tower_rows);
     set('#b-gap', s.gap_mode); set('#b-focus', s.focus_car);
     chk('#b-pits', s.show_pits);
@@ -525,7 +526,7 @@ async function saveBroadcast(){
     pits_rows: num('#p-rows', 12),
     pits_show_all: $('#p-all').checked,
   });
-  if(r.ok) toast('Настройки применены');
+  if(r.ok){ forgetEdits(); toast('Настройки применены'); }
 }
 
 async function saveDelta(){
@@ -541,6 +542,7 @@ async function saveDelta(){
   const r = await post('/api/broadcast/settings', {delta_pair: pair});
   if(r.ok) toast(pair.length === 2 ? `Пара: #${pair[0]} и #${pair[1]}`
                                    : 'Укажи обоих пилотов', pair.length===2?'':'err');
+  if(r.ok) forgetEdits();
   loadBroadcast();
 }
 
@@ -552,9 +554,10 @@ async function showComm(visible){
   const r = await post('/api/broadcast/commentators',
                        {people, visible, caption: $('#c-cap').value});
   if(r.ok){
+    forgetEdits();
     toast(visible ? 'Плашка в эфире' : 'Плашка скрыта');
     const st = $('#c-state'); if(st) st.textContent = visible ? 'в эфире' : 'скрыта';
-  }
+  }else toast(r.message || 'Не получилось');
 }
 
 function copyUrl(name, direct){
@@ -563,6 +566,34 @@ function copyUrl(name, direct){
   navigator.clipboard.writeText(url)
     .then(() => toast('Скопировано: ' + url))
     .catch(() => toast('Не удалось скопировать', 'err'));
+}
+
+// Панель перерисовывает вкладку при каждом обновлении состояния — раз в
+// секунду. Поле пересоздавалось прямо под курсором, а загрузка настроек тут
+// же вписывала в него сохранённое (пустое) значение: набрать ничего было
+// нельзя. Теперь набранное запоминается и возвращается после перерисовки,
+// а пока курсор в текстовом поле, вкладку не трогаем вовсе.
+const edited = {};                       // id поля -> то, что человек набрал
+document.addEventListener('input', e => {
+  const el = e.target;
+  if(!el.id || !el.closest || !el.closest('#view')) return;
+  if(!['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
+  edited[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+});
+function keepEdits(){
+  for(const [id, v] of Object.entries(edited)){
+    const el = document.getElementById(id);
+    if(!el) continue;
+    if(el.type === 'checkbox') el.checked = v; else if(el.value !== v) el.value = v;
+  }
+}
+// после успешного сохранения набранное уже на сервере — можно забыть
+function forgetEdits(){ for(const k of Object.keys(edited)) delete edited[k]; }
+function typingInView(){
+  const a = document.activeElement;
+  return !!(a && a.closest && a.closest('#view') &&
+            (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' &&
+             !['checkbox', 'radio', 'button', 'color', 'range'].includes(a.type))));
 }
 
 function apply(st){
@@ -574,7 +605,10 @@ function apply(st){
   const rcm = (st.modules || []).find(m => m.id === 'racecontrol');
   st.overlay_visible = !!(rcm && rcm.overlay_visible);
   st.overlay_available = !!(rcm && rcm.overlay_available);
-  state = st; renderHeader(st); renderNav(); renderView();
+  state = st; renderHeader(st); renderNav();
+  if(typingInView()) return;             // человек печатает — вкладку не трогаем
+  renderView();
+  keepEdits();
 }
 async function refresh(){
   try{ apply(await (await fetch('/api/state')).json()); }catch(e){}

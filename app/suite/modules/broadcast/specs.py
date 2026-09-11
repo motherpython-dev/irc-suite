@@ -152,6 +152,16 @@ DEFAULTS: dict[str, dict] = {
         "body": {
             "type": "cards", "items": "people", "key": "name", "gap": 8,
             "empty": "",
+            # подпись справа от карточек («в эфире», «прямой эфир») — своя
+            # плашка; видна, только когда подпись задана
+            "tail": {
+                "width": 170, "when": "$.caption",
+                "bg": {"fill": "$accent", "shape": "slant-left"},
+                "elements": [
+                    _t("cap", "{$.caption|upper}", 18, 0, 144, 52, font="num", size=17,
+                       weight=600, color="#FFFFFF", align="center"),
+                ],
+            },
             "item": {
                 # ширина под имя с фамилией: при 230 «КОММЕНТАТОР ОДИН» обрезался
                 "width": 280, "height": 52,
