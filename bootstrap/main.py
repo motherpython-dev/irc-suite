@@ -58,7 +58,7 @@ def _single_instance() -> bool:
         return False
 
 
-def _panel_mode(url: str) -> int:
+def _panel_mode(url: str, deck: bool = False) -> int:
     """Окно панели отдельным процессом (`iRC.exe --panel <url>`).
 
     Главный поток приложения занят циклом Tk — на нём живут оверлеи, — а
@@ -78,7 +78,13 @@ def _panel_mode(url: str) -> int:
         return 2
     icon = bundle / "suite" / "assets" / "icon.ico"
     try:
-        code = run(url, icon=icon, storage=paths.data_dir() / "panel-webview")
+        if deck:
+            # у пульта своя папка данных: одну папку WebView2 два окна
+            # одновременно держать не могут
+            code = run(url, icon=icon, storage=paths.data_dir() / "deck-webview",
+                       title="iRC · пульт", size=(1120, 760), on_top=True)
+        else:
+            code = run(url, icon=icon, storage=paths.data_dir() / "panel-webview")
         log.info("окно панели закрыто")
         return code
     except Exception:
@@ -120,6 +126,11 @@ def main() -> int:
         if i + 1 >= len(sys.argv):
             return 2
         return _panel_mode(sys.argv[i + 1])
+    if "--deck" in sys.argv:
+        i = sys.argv.index("--deck")
+        if i + 1 >= len(sys.argv):
+            return 2
+        return _panel_mode(sys.argv[i + 1], deck=True)
 
     log_path = _setup_logging()
     log = logging.getLogger("bootstrap")

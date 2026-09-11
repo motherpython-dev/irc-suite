@@ -74,6 +74,8 @@ class SimClient:
         self._stale_ticks = 0      # тиков подряд с мёртвой телеметрией
         self.demo = False          # синтетическая гонка вместо чтения сима
         self._demo = None
+        self._split_info: dict = {}           # разметка секторов трассы
+        self._driver_inc: dict[int, int] = {}  # инциденты из DriverInfo
         self._last_tick = None
 
         self.ir = irsdk.IRSDK() if irsdk else None
@@ -382,8 +384,79 @@ class SimClient:
         out.sort(key=lambda r: r["position"])
         return out
 
+    def sector_starts(self) -> list[float]:
+        """Границы секторов трассы в долях круга, от линии старта.
+
+        Из `SplitTimeInfo.Sectors[].SectorStartPct`. Пусто, если сессия не
+        отдала разметку — тогда сектора в пульте не показываются.
+        """
+        if self.demo and self._demo:
+            return self._demo.sector_starts()
+        try:
+            secs = (self._split_info or {}).get("Sectors") or []
+            starts = sorted(float(x.get("SectorStartPct") or 0.0) for x in secs)
+            return starts if len(starts) >= 2 else []
+        except Exception:
+            return []
+
+    def driver_incidents(self) -> dict[int, int]:
+        """Инциденты каждого пилота — для карточек пульта.
+
+        Два источника: результаты сессии (`ResultsPositions[].Incidents`) и
+        `DriverInfo.Drivers[].CurDriverIncidentCount`. Какой из них живой в
+        спектейте лиги, НЕ ПРОВЕРЕНО — берём больший, чтобы не показать ноль
+        там, где второй источник знает правду.
+
+        Рейс-контрол этим методом не пользуется: в демо тут синтетика.
+        """
+        if self.demo and self._demo:
+            return self._demo.incidents()
+        out = dict(self._driver_inc)
+        for idx, v in self.session_results_incidents().items():
+            out[idx] = max(out.get(idx, 0), v)
+        return out
+
+    def camera_state(self) -> dict:
+        """Что сейчас в кадре: машина, группа камер, номер камеры в группе."""
+        if self.demo and self._demo:
+            return dict(self._demo.cam)
+        try:
+            idx = self.ir["CamCarIdx"]
+            return {"car_idx": -1 if idx is None else int(idx),
+                    "group": int(self.ir["CamGroupNumber"] or 0),
+                    "camera": int(self.ir["CamCameraNumber"] or 0)}
+        except Exception:
+            return {"car_idx": -1, "group": 0, "camera": 0}
+
+    def switch_camera(self, car_number: str | None = None,
+                      group: int | None = None) -> bool:
+        """Переключить камеру. None — оставить как есть.
+
+        Группу передаём ВСЕГДА явно: у `cam_switch_num` по умолчанию группа 1
+        (Nose), и «не указать» означало бы выдернуть оператора в нос машины.
+        Номер машины — строкой: «07» и «7» у iRacing разные машины.
+        """
+        if self.demo and self._demo:
+            return self._demo.set_camera(car_number, group)
+        if not (self.ir and self.ir.is_initialized and self.ir.is_connected):
+            return False
+        try:
+            if group is None:
+                group = int(self.ir["CamGroupNumber"] or 1)
+            if car_number is None:
+                cur = self._drivers.get(int(self.ir["CamCarIdx"] or -1))
+                if cur is None:
+                    return False
+                car_number = cur.car_number
+            self.ir.cam_switch_num(str(car_number), int(group), 0)
+            return True
+        except Exception:
+            return False
+
     def camera_groups(self) -> dict[str, int]:
         """{'TV1': 2, 'Nose': 1, ...} из session YAML CameraInfo."""
+        if self.demo and self._demo:
+            return self._demo.camera_groups()
         try:
             ci = self.ir["CameraInfo"] or {}
             return {str(g.get("GroupName")): int(g.get("GroupNum"))
@@ -547,7 +620,9 @@ class SimClient:
                 mode=MODE_LIVE,
                 connected=True,
                 session_num=0,
-                session_time=time.monotonic() - demo.started,
+                # время сессии в демо идёт с тем же ускорением, что и гонка,
+                # иначе секторы и пит-стопы выходили бы в восемь раз короче
+                session_time=(time.monotonic() - demo.started) * demo.speed,
                 session_tick=int((time.monotonic() - demo.started) * 60),
                 player_car_idx=-1,
                 results_available=True,
@@ -570,6 +645,7 @@ class SimClient:
             di = self.ir["DriverInfo"] or {}
             self._session_info_driver = di
             drivers = {}
+            inc = {}
             for d in (di.get("Drivers") or []):
                 idx = d.get("CarIdx")
                 if idx is None:
@@ -577,6 +653,8 @@ class SimClient:
                 # пейс-кар и пустые слоты пропускаем
                 if str(d.get("CarIsPaceCar", 0)) == "1":
                     continue
+                if d.get("CurDriverIncidentCount") is not None:
+                    inc[int(idx)] = int(d.get("CurDriverIncidentCount") or 0)
                 drivers[int(idx)] = Driver(
                     car_idx=int(idx),
                     car_number=str(d.get("CarNumber") or "?"),
@@ -590,6 +668,8 @@ class SimClient:
                 )
             if drivers:
                 self._drivers = drivers
+            self._driver_inc = inc
+            self._split_info = self.ir["SplitTimeInfo"] or {}
             self._weekend = self.ir["WeekendInfo"] or {}
         except Exception:
             pass

@@ -95,6 +95,13 @@ PIT_LOSS = 52.0                                # потеря на заезд, �
 SPEED = 8.0                                    # во столько раз быстрее реального
 START_LAP = 9.0                                # заезд начинается по ходу гонки
 
+# Группы камер, как их отдаёт CameraInfo на типичной трассе.
+DEMO_CAMERAS = {
+    "Nose": 1, "Gearbox": 2, "Roll Bar": 3, "LF Susp": 4, "Gyro": 5,
+    "Cockpit": 6, "Chase": 8, "Far Chase": 9, "TV1": 10, "TV2": 11,
+    "TV3": 12, "Blimp": 13, "Chopper": 14, "Pit Lane": 15,
+}
+
 
 def _lap(cls: str) -> float:
     return BASE_LAP.get(cls, DEFAULT_LAP)
@@ -126,6 +133,7 @@ class _Car:
     next_stop_lap: float = 0.0
     quali: float = 0.0
     laps_done: int = 0
+    incidents: int = 0          # только для карточек пульта, рейс-контролю не идут
 
 
 class DemoRace:
@@ -134,6 +142,9 @@ class DemoRace:
     def __init__(self, seed: int = 7) -> None:
         self.rnd = random.Random(seed)
         self.started = time.monotonic()
+        self.speed = SPEED
+        # что «в кадре»: пульт переключает, демо запоминает
+        self.cam = {"car_idx": 0, "group": DEMO_CAMERAS["TV1"], "camera": 1}
         self.cars: list[_Car] = []
         roster = load_roster()
         for i, (num, name, team, cls) in enumerate(roster):
@@ -182,6 +193,8 @@ class DemoRace:
             c.distance += dt / lap_time
             if int(c.distance) > before:       # закрыт круг
                 c.laps_done = int(c.distance)
+                if self.rnd.random() < 0.08:
+                    c.incidents += self.rnd.choice((1, 1, 2, 4))
                 c.last_lap = round(lap_time * self.rnd.uniform(0.997, 1.006), 3)
                 c.best_lap = c.last_lap if not c.best_lap else min(c.best_lap,
                                                                   c.last_lap)
@@ -251,6 +264,26 @@ class DemoRace:
         """Пара для оверлея дельты: два первых номера в текущем порядке."""
         order = self._order()
         return [c.number for c in order[:2]]
+
+    def sector_starts(self) -> list[float]:
+        return [0.0, 0.34, 0.68]
+
+    def camera_groups(self) -> dict[str, int]:
+        return dict(DEMO_CAMERAS)
+
+    def set_camera(self, car_number: str | None, group: int | None) -> bool:
+        if car_number is not None:
+            car = next((c for c in self.cars if c.number == str(car_number)), None)
+            if car is None:
+                return False
+            self.cam["car_idx"] = car.idx
+        if group is not None:
+            self.cam["group"] = int(group)
+            self.cam["camera"] = 1
+        return True
+
+    def incidents(self) -> dict[int, int]:
+        return {c.idx: c.incidents for c in self.cars}
 
     def drivers(self) -> list[tuple[int, str, str, str, int, str]]:
         return [(c.idx, c.number, c.name, c.team, _class_id(c.cls), c.cls)

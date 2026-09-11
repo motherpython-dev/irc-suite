@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 
 from ...core.modules import Context
+from .macros import MacroRunner, normalize_macros
+from .sectors import SectorTimer
 
 WEB = Path(__file__).resolve().parents[2] / "web"
 
@@ -124,6 +126,8 @@ class BroadcastModule:
         self._rows: list[dict] = []
         self.deck = None
         self.windows: dict = {}
+        self.sectors = SectorTimer()
+        self.macro_runner = MacroRunner(self)
 
     # ---------- жизненный цикл ----------
 
@@ -164,28 +168,26 @@ class BroadcastModule:
         host.call(make)
 
     def show_deck(self, visible: bool) -> dict:
-        """Пульт эфира — тоже по требованию, не при старте."""
-        from ...core.ui import host
-        if not visible:
-            if self.deck:
-                host.call(self.deck.hide)
-            return {"ok": True, "visible": False}
-        if not host.is_running():
-            return {"ok": False, "error": "no_ui"}
+        """Пульт эфира — родное окно поверх iRacing.
 
-        def make():
-            if self.deck is None:
-                self.build_deck(host.root())
-            self.deck.show()
-
-        host.call(make)
-        return {"ok": True, "visible": True}
+        Это та же страница, что `/deck` на телефоне: одна вёрстка на оба
+        случая. Окно держит ядро отдельным процессом, как и главную панель —
+        WebView2 не уживается в одном потоке с Tk.
+        """
+        app = self.ctx.app if self.ctx else None
+        if app is None:
+            return {"ok": False, "error": "no_app"}
+        res = app.open_deck() if visible else app.close_deck()
+        self.ctx.publish("overlays", self.visibility())
+        return res
 
     def deck_visible(self) -> bool:
-        return bool(self.deck and self.deck.visible)
+        app = self.ctx.app if self.ctx else None
+        return bool(app and app.deck_open())
 
     def stop(self) -> None:
         self._stop.set()
+        self.macro_runner.stop()
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
@@ -283,12 +285,14 @@ class BroadcastModule:
         if snap.subsession_id != self._subsession:
             self._subsession = snap.subsession_id
             self.pits_tracker.reset()
+            self.sectors.reset()
 
         rows = sim.timing()
         # В повторе CarIdx* показывают просматриваемый кадр — питы по ним
         # считать нельзя, иначе прошлые заезды запишутся как новые
         if snap.mode == "LIVE":
             self.pits_tracker.update(rows, snap.session_time)
+            self.sectors.update(sim.sector_starts(), rows, snap.session_time)
         for r in rows:
             r["pit_stops"] = self.pits_tracker.count(r["car_idx"])
         self._rows = rows
@@ -467,6 +471,122 @@ class BroadcastModule:
 
     # ---------- HTTP ----------
 
+    # ---------- пульт: карточки, камеры, макросы ----------
+
+    def cards(self) -> dict:
+        """Карточки пилотов для пульта.
+
+        Разрыв считаем двумя способами сразу: до лидера и до идущего впереди.
+        Сектора — текущего круга, прошлого и лучшие, плюс лучшие по полю,
+        чтобы пульт подсветил фиолетовым, как в таймингах.
+        """
+        sim = self.ctx.sim
+        snap = sim.snapshot()
+        starts = sim.sector_starts()
+        n = len(starts)
+        inc = sim.driver_incidents()
+        cam = sim.camera_state()
+        rows = sorted(self._rows, key=lambda r: r["position"])
+        out, prev = [], None
+        for r in rows:
+            out.append({
+                "car_idx": r["car_idx"],
+                "position": r["position"],
+                "class_position": r.get("class_position", 0),
+                "car_number": r["car_number"],
+                "name": r["name"],
+                "team": r.get("team", ""),
+                "class_name": r.get("class_name", ""),
+                "gap": r["gap"],
+                "interval": (None if prev is None
+                             else round(max(0.0, r["gap"] - prev["gap"]), 3)),
+                "lap": r.get("lap", 0),
+                "last_lap": r.get("last_lap", 0.0),
+                "best_lap": r.get("best_lap", 0.0),
+                "in_pit": bool(r.get("on_pit") or r.get("in_pit_stall")),
+                "pit_stops": r.get("pit_stops", 0),
+                "incidents": inc.get(r["car_idx"]),
+                "sectors": self.sectors.get(r["car_idx"], n),
+            })
+            prev = r
+        return {"mode": snap.mode, "live": snap.mode == "LIVE",
+                "demo": bool(getattr(sim, "demo", False)),
+                "sectors_n": n, "best": self.sectors.best_overall(n),
+                "focus_car_idx": cam.get("car_idx", -1), "rows": out}
+
+    def _camera_now(self) -> dict:
+        sim = self.ctx.sim
+        cur = sim.camera_state()
+        names = {v: k for k, v in sim.camera_groups().items()}
+        row = next((r for r in self._rows if r["car_idx"] == cur.get("car_idx")), None)
+        return {**cur, "group_name": names.get(cur.get("group"), ""),
+                "car_number": row["car_number"] if row else ""}
+
+    def cameras(self) -> dict:
+        groups = sorted(({"name": k, "num": v}
+                         for k, v in self.ctx.sim.camera_groups().items()),
+                        key=lambda g: g["num"])
+        return {"groups": groups, "current": self._camera_now()}
+
+    def camera(self, data: dict) -> dict:
+        """Камера на машину и/или группу.
+
+        car: номер, «leader» или пусто/«focus» — машина, что уже в кадре.
+        group: номер группы или её имя из CameraInfo; пусто — текущая.
+        """
+        sim = self.ctx.sim
+        car = str(data.get("car") or "").strip().lstrip("#")
+        if car in ("", "focus"):
+            car = None
+        elif car == "leader":
+            lead = next((r for r in self._rows if r["position"] == 1), None)
+            if not lead:
+                return {"ok": False, "error": "no_leader"}
+            car = lead["car_number"]
+
+        group = data.get("group")
+        gnum = None
+        if group not in (None, ""):
+            if isinstance(group, int) or str(group).isdigit():
+                gnum = int(group)
+            else:
+                gmap = {k.lower(): v for k, v in sim.camera_groups().items()}
+                gnum = gmap.get(str(group).strip().lower())
+                if gnum is None:
+                    return {"ok": False, "error": "unknown_camera_group",
+                            "group": group}
+        ok = sim.switch_camera(car, gnum)
+        return {"ok": bool(ok), "current": self._camera_now()}
+
+    def apply_overlay(self, overlay_id: str, action: str) -> dict:
+        """Шаг макроса: показать, убрать, переключить, оставить только этот."""
+        ids = [i for i, _ in OVERLAYS]
+        if overlay_id == "*":
+            for i in ids:
+                if self.is_visible(i) != (action == "show"):
+                    self.set_visible(i, action == "show")
+            return {"ok": True, **self.visibility()}
+        if overlay_id not in ids:
+            return {"ok": False, "error": "unknown_overlay"}
+        if action == "only":
+            for i in ids:
+                if i != overlay_id and self.is_visible(i):
+                    self.set_visible(i, False)
+            return self.set_visible(overlay_id, True)
+        if action == "toggle":
+            return self.set_visible(overlay_id, not self.is_visible(overlay_id))
+        return self.set_visible(overlay_id, action != "hide")
+
+    def macros_get(self) -> dict:
+        return {"macros": self.ctx.config.get("macros") or [],
+                "running": self.macro_runner.running}
+
+    def macros_save(self, data: dict) -> dict:
+        clean = normalize_macros(data.get("macros"), [i for i, _ in OVERLAYS])
+        self.ctx.config["macros"] = clean
+        self.ctx.save_config()
+        return {"ok": True, "macros": clean}
+
     def routes(self) -> dict:
         def body(req) -> dict:
             n = int(req.headers.get("Content-Length") or 0)
@@ -500,4 +620,13 @@ class BroadcastModule:
                                                       bool(b.get("visible"))))(body(r)),
             "GET /api/broadcast/settings": lambda r: self.settings(),
             "POST /api/broadcast/settings": lambda r: self.set_settings(body(r)),
+            "GET /api/broadcast/cards": lambda r: self.cards(),
+            "GET /api/broadcast/cameras": lambda r: self.cameras(),
+            "POST /api/broadcast/camera": lambda r: self.camera(body(r)),
+            "GET /api/broadcast/macros": lambda r: self.macros_get(),
+            "POST /api/broadcast/macros": lambda r: self.macros_save(body(r)),
+            "POST /api/broadcast/macro/run":
+                lambda r: self.macro_runner.run(str(body(r).get("id", ""))),
+            "POST /api/broadcast/macro/stop":
+                lambda r: (self.macro_runner.stop(), {"ok": True})[1],
         }

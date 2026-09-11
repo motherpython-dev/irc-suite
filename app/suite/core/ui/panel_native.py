@@ -271,10 +271,15 @@ def _drop_stale(base: Path) -> None:
 
 
 def run(url: str, icon: Path, storage: Path, title: str = "iRC",
-        size: tuple[int, int] = (1180, 780)) -> int:
-    """Показать панель родным окном. Возврат — код выхода процесса.
+        size: tuple[int, int] = (1180, 780), on_top: bool = False) -> int:
+    """Показать страницу родным окном. Возврат — код выхода процесса.
 
     Функция блокирующая: она и есть цикл сообщений окна.
+
+    on_top — окно поверх всех, в том числе полноэкранного iRacing (режим
+    borderless). Так живёт пульт эфира. Фокус окно при этом забирает: в
+    редакторе макросов нужно печатать, а спектейту потеря фокуса не мешает —
+    broadcast-команды идут без него.
     """
     import webview
 
@@ -287,7 +292,7 @@ def run(url: str, icon: Path, storage: Path, title: str = "iRC",
     storage = _free_storage(storage)
     storage.mkdir(parents=True, exist_ok=True)
     webview.create_window(title, url, width=size[0], height=size[1],
-                          background_color="#0B0E14")
+                          background_color="#0B0E14", on_top=on_top)
     threading.Thread(target=_prepare_window, args=(icon,), daemon=True,
                      name="panel-window").start()
     webview.start(gui="edgechromium", private_mode=False,

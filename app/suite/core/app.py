@@ -42,6 +42,7 @@ class Application:
 
         self._stop = threading.Event()
         self._panel = None               # процесс окна панели, см. open_panel
+        self._deck = None                # процесс окна пульта, см. open_deck
         self.on_module_change = None     # трей перерисовывает меню
         self.on_mode_change = None       # трей меняет цвет значка
 
@@ -255,18 +256,21 @@ class Application:
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
     def _spawn_panel(self, url: str) -> subprocess.Popen:
-        """Процесс окна панели: сам exe с флагом, а из исходников — run.py."""
+        return self._spawn_window("--panel", url, "panel-window.log")
+
+    def _spawn_window(self, flag: str, url: str, log_name: str) -> subprocess.Popen:
+        """Процесс родного окна: сам exe с флагом, а из исходников — run.py."""
         if getattr(sys, "frozen", False):
-            args = [sys.executable, "--panel", url]
+            args = [sys.executable, flag, url]
         else:
             # из исходников точка входа — тот же run.py, которым запустили
             # приложение; вычислять её от __file__ нельзя: модуль лежит в
             # распакованном бандле, а не в репозитории
-            args = [sys.executable, str(Path(sys.argv[0]).resolve()), "--panel", url]
-        log.info("окно панели: %s", " ".join(args[-2:]))
+            args = [sys.executable, str(Path(sys.argv[0]).resolve()), flag, url]
+        log.info("окно %s: %s", flag.lstrip("-"), url)
         # Вывод процесса уводим в файл: у отсоединённого окна нет консоли, и
         # без этого падение движка не оставляет никаких следов.
-        out = open(config.data_dir() / "panel-window.log", "a", encoding="utf-8")
+        out = open(config.data_dir() / log_name, "a", encoding="utf-8")
         proc = subprocess.Popen(args, close_fds=True, stdout=out, stderr=out,
                                 creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
         # Разрешаем окну выйти вперёд: без этого Windows не даёт фоновому
@@ -277,6 +281,31 @@ class Application:
         except Exception:
             pass
         return proc
+
+    # ---------- пульт эфира ----------
+
+    def open_deck(self) -> dict:
+        """Пульт родным окном поверх iRacing. Второй раз — поднять открытый."""
+        from .ui import panel_native
+        if self._deck and self._deck.poll() is None:
+            panel_native.focus(self._deck.pid)
+            return {"ok": True, "visible": True}
+        url = self.server.url.rstrip("/") + "/deck"
+        try:
+            self._deck = self._spawn_window("--deck", url, "deck-window.log")
+        except Exception:
+            log.exception("окно пульта не запустилось")
+            return {"ok": False, "error": "spawn_failed"}
+        return {"ok": True, "visible": True}
+
+    def close_deck(self) -> dict:
+        if self._deck and self._deck.poll() is None:
+            self._close_panel_tree(self._deck.pid)
+        self._deck = None
+        return {"ok": True, "visible": False}
+
+    def deck_open(self) -> bool:
+        return bool(self._deck and self._deck.poll() is None)
 
     def start(self) -> None:
         self.server.start()
@@ -299,6 +328,11 @@ class Application:
 
     def stop(self) -> None:
         self._stop.set()
+        if self._deck and self._deck.poll() is None:
+            try:
+                self._close_panel_tree(self._deck.pid)
+            except Exception:
+                log.debug("окно пульта не закрылось", exc_info=True)
         # Окно панели — отдельный процесс, и само оно о выходе не узнает:
         # закрываем вместе с приложением, иначе останется висеть без сервера.
         if self._panel and self._panel.poll() is None:
