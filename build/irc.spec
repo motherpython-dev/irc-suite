@@ -1,4 +1,9 @@
-# PyInstaller spec. Сборка: pyinstaller build/ichamps-racecontrol.spec --noconfirm
+# PyInstaller spec. Сборка:
+#     python -m PyInstaller build/irc.spec --noconfirm --clean --distpath dist --workpath build/_work
+#
+# --clean обязателен: без него PyInstaller берёт иконку из своего рабочего
+# кэша, и новая assets/icon.ico в exe не попадает — так в 2.9.9–2.13.2
+# жила старая иконка с кривым кубком, хотя файл давно был исправлен.
 #
 # В exe попадают: bootstrap (ядро), интерпретатор, зависимости и seed-бандл.
 # Логика приложения дальше обновляется бандлами — exe перевыпускается редко.

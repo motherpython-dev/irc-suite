@@ -4,7 +4,7 @@
 
 #define AppName        "iRC"
 #define AppShortName   "iRC"
-#define AppVersion     "2.9.9"
+#define AppVersion     "2.13.3"
 #define AppPublisher   "iRChamps"
 #define AppExe         "iRC.exe"
 
