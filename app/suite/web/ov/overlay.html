@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>iRC · оверлей</title>
+<style>
+  /* Фон прозрачный: страница показывается и в прозрачном окне поверх
+     iRacing, и источником в OBS. Размеры и вид — из описания оверлея. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent;overflow:hidden;user-select:none}
+  #ov{position:absolute;left:14px;top:14px;opacity:0;
+      transition:transform .26s cubic-bezier(.2,.8,.2,1),opacity .22s ease}
+  #ov[data-enter="left"]{transform:translateX(-26px)}
+  #ov[data-enter="right"]{transform:translateX(26px)}
+  #ov[data-enter="up"]{transform:translateY(26px)}
+  #ov[data-enter="down"]{transform:translateY(-26px)}
+  #ov.on{opacity:1;transform:none}
+
+  .frame{position:relative;overflow:hidden}
+  .frame.shadow{box-shadow:0 8px 22px -8px rgba(0,0,0,.7)}
+  .layer,.body{position:relative}
+  .bg{position:absolute;inset:0}
+  .stripe{position:absolute;left:0;z-index:3}
+  .item{position:absolute;left:0;top:0;transition:transform .45s cubic-bezier(.3,.7,.2,1)}
+  .edge{position:absolute;left:0;top:0;bottom:0;width:3px;z-index:2}
+  .el{position:absolute;display:flex;align-items:center;white-space:nowrap;overflow:hidden}
+  .el .t{overflow:hidden;text-overflow:ellipsis;padding:0 1px}
+  .el-image img{width:100%;height:100%}
+  .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+         color:#8B98A9;background:#141923;
+         font:13px 'Bahnschrift Condensed','Arial Narrow',sans-serif;letter-spacing:.5px}
+</style>
+</head>
+<body data-ov="__OV__">
+<div id="ov"></div>
+<script src="/ov/render.js"></script>
+</body>
+</html>

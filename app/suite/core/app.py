@@ -43,6 +43,7 @@ class Application:
         self._stop = threading.Event()
         self._panel = None               # процесс окна панели, см. open_panel
         self._deck = None                # процесс окна пульта, см. open_deck
+        self._overlays = None            # процесс окон оверлеев, см. ensure_overlays
         self.on_module_change = None     # трей перерисовывает меню
         self.on_mode_change = None       # трей меняет цвет значка
 
@@ -307,6 +308,22 @@ class Application:
     def deck_open(self) -> bool:
         return bool(self._deck and self._deck.poll() is None)
 
+    # ---------- окна оверлеев ----------
+
+    def ensure_overlays(self) -> None:
+        """Поднять процесс окон оверлеев при первом выходе в эфир.
+
+        Все оверлеи живут в одном процессе на одном движке WebView2. При
+        старте программы его нет: на экране должно быть только главное окно.
+        """
+        if self._overlays and self._overlays.poll() is None:
+            return
+        try:
+            self._overlays = self._spawn_window(
+                "--overlays", self.server.url.rstrip("/"), "overlays-window.log")
+        except Exception:
+            log.exception("окна оверлеев не запустились")
+
     def start(self) -> None:
         self.server.start()
         self.sim.start()
@@ -333,6 +350,11 @@ class Application:
                 self._close_panel_tree(self._deck.pid)
             except Exception:
                 log.debug("окно пульта не закрылось", exc_info=True)
+        if self._overlays and self._overlays.poll() is None:
+            try:
+                self._close_panel_tree(self._overlays.pid)
+            except Exception:
+                log.debug("окна оверлеев не закрылись", exc_info=True)
         # Окно панели — отдельный процесс, и само оно о выходе не узнает:
         # закрываем вместе с приложением, иначе останется висеть без сервера.
         if self._panel and self._panel.poll() is None:

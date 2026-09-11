@@ -140,6 +140,9 @@ class BroadcastModule:
 
         # Окна НЕ создаём: при старте приложения на экране должно быть только
         # главное окно. Оверлеи и пульт появляются, когда их включают.
+        # эфир после запуска пуст: графику выводит режиссёр. Иначе флаги
+        # «в эфире» из прошлого запуска расходились с тем, что на экране
+        ctx.config["visible"] = {}
         ctx.log.info("оверлеи трансляции запущены (окна по требованию)")
 
     def _ensure_window(self, overlay_id: str):
@@ -253,12 +256,10 @@ class BroadcastModule:
         if overlay_id == "commentators":
             self.ctx.config["comm_visible"] = bool(visible)
         self.ctx.save_config()
-        if visible:
-            self._ensure_window(overlay_id)
-        w = self.windows.get(overlay_id)
-        if w:
-            from ...core.ui import host
-            host.call(lambda: w.set_visible(bool(visible)))
+        if visible and self.ctx.app is not None:
+            # Окна оверлеев держит отдельный процесс на WebView2. Страница сама
+            # увидит в данных, что её вывели в эфир, и покажет окно с анимацией.
+            self.ctx.app.ensure_overlays()
         self.ctx.publish("overlays", self.visibility())
         return {"ok": True, **self.visibility()}
 
@@ -409,10 +410,13 @@ class BroadcastModule:
         self._delta_prev = gap
         return {"ready": True, "visible": self.is_visible("delta"),
                 "gap": gap, "trend": trend,
+                # класс нужен чипу номера: он красится под цвет класса
                 "lead": {"car_number": lead["car_number"], "name": lead["name"],
-                         "position": lead["position"]},
+                         "position": lead["position"],
+                         "class_name": lead.get("class_name", "")},
                 "chase": {"car_number": chase["car_number"], "name": chase["name"],
-                          "position": chase["position"]},
+                          "position": chase["position"],
+                          "class_name": chase.get("class_name", "")},
                 "laps_apart": lead["laps"] - chase["laps"]}
 
     def pits(self) -> dict:
@@ -587,6 +591,31 @@ class BroadcastModule:
         self.ctx.save_config()
         return {"ok": True, "macros": clean}
 
+    # ---------- положение окон оверлеев ----------
+
+    # Куда ставить окно, пока его ни разу не двигали (экран 1920x1080).
+    DEFAULT_POS = {
+        "tower": {"x": 16, "y": 110}, "grid": {"x": 506, "y": 690},
+        "commentators": {"x": 40, "y": 930}, "delta": {"x": 1580, "y": 110},
+        "pits": {"x": 1540, "y": 420},
+    }
+
+    def positions(self) -> dict:
+        """Хосту оверлеев: какие окна поднимать и где они стояли."""
+        pos = self.ctx.config.get("positions") or {}
+        return {"overlays": [i for i, _ in OVERLAYS],
+                "positions": {i: pos.get(i) or self.DEFAULT_POS.get(i, {"x": 40, "y": 120})
+                              for i, _ in OVERLAYS}}
+
+    def set_position(self, data: dict) -> dict:
+        oid = str(data.get("id", ""))
+        if oid not in dict(OVERLAYS):
+            return {"ok": False, "error": "unknown_overlay"}
+        self.ctx.config.setdefault("positions", {})[oid] = {
+            "x": int(data.get("x", 0)), "y": int(data.get("y", 0))}
+        self.ctx.save_config()
+        return {"ok": True}
+
     def routes(self) -> dict:
         def body(req) -> dict:
             n = int(req.headers.get("Content-Length") or 0)
@@ -597,15 +626,30 @@ class BroadcastModule:
             except Exception:
                 return {}
 
-        def page(name: str):
-            return lambda r: ((WEB / name).read_bytes(), "text/html; charset=utf-8")
+        def overlay(oid: str):
+            # один отрисовщик на все оверлеи: страница общая, меняется только id
+            return lambda r: ((WEB / "ov" / "overlay.html").read_bytes()
+                              .replace(b"__OV__", oid.encode()), "text/html; charset=utf-8")
+
+        def spec_get(req):
+            from urllib.parse import parse_qs, urlparse
+            from . import specs
+            oid = parse_qs(urlparse(req.path).query).get("id", [""])[0]
+            return specs.load(oid) or {"ok": False, "error": "unknown_overlay"}
+
+        def spec_save(req):
+            from . import specs
+            b = body(req)
+            return specs.save(str(b.get("id", "")), b.get("spec") or {})
 
         return {
-            "GET /ov/tower": page("ov_tower.html"),
-            "GET /ov/grid": page("ov_grid.html"),
-            "GET /ov/commentators": page("ov_commentators.html"),
-            "GET /ov/delta": page("ov_delta.html"),
-            "GET /ov/pits": page("ov_pits.html"),
+            **{f"GET /ov/{oid}": overlay(oid) for oid, _ in OVERLAYS},
+            "GET /ov/render.js": lambda r: ((WEB / "ov" / "render.js").read_bytes(),
+                                            "application/javascript; charset=utf-8"),
+            "GET /api/broadcast/spec": spec_get,
+            "POST /api/broadcast/spec": spec_save,
+            "GET /api/broadcast/positions": lambda r: self.positions(),
+            "POST /api/broadcast/position": lambda r: self.set_position(body(r)),
             "GET /api/broadcast/tower": lambda r: self.tower(),
             "GET /api/broadcast/grid": lambda r: self.grid(),
             "GET /api/broadcast/commentators": lambda r: self.commentators(),

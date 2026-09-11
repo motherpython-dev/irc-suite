@@ -92,6 +92,25 @@ def _panel_mode(url: str, deck: bool = False) -> int:
         return 3
 
 
+def _overlays_mode(url: str) -> int:
+    """Окна эфирных оверлеев отдельным процессом (`iRC.exe --overlays <url>`)."""
+    _setup_logging()
+    log = logging.getLogger("overlays")
+    log.info("окна оверлеев: %s", url)
+    version = paths.read_pointer().get("current") or CORE_VERSION
+    sys.path.insert(0, str(paths.version_dir(version)))
+    try:
+        from suite.core.ui.overlay_host import run
+    except Exception:
+        log.error("хост оверлеев не загрузился: %s", traceback.format_exc())
+        return 2
+    try:
+        return run(url, storage=paths.data_dir() / "overlay-webview")
+    except Exception:
+        log.error("хост оверлеев упал: %s", traceback.format_exc())
+        return 3
+
+
 def _panel_port() -> int:
     """Порт панели из настроек: у второго экземпляра своего ядра ещё нет."""
     try:
@@ -131,6 +150,11 @@ def main() -> int:
         if i + 1 >= len(sys.argv):
             return 2
         return _panel_mode(sys.argv[i + 1], deck=True)
+    if "--overlays" in sys.argv:
+        i = sys.argv.index("--overlays")
+        if i + 1 >= len(sys.argv):
+            return 2
+        return _overlays_mode(sys.argv[i + 1])
 
     log_path = _setup_logging()
     log = logging.getLogger("bootstrap")
