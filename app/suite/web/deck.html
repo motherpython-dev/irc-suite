@@ -75,7 +75,16 @@
   #q{width:260px;padding:6px 10px}
   .tblwrap{border:1px solid var(--line);border-radius:12px;overflow:auto;
            max-height:calc(100vh - 250px);min-height:180px}
-  table.tt{width:100%;border-collapse:collapse;font-size:13px}
+  /* Ширина колонок задана заранее (colgroup + table-layout:fixed): иначе
+     браузер пересчитывает её по содержимому, и любая новая метка или длинное
+     время перекраивают всю таблицу — при клике всё съезжало. */
+  /* min-width: фиксированные колонки занимают ~940px, остаток отдаётся
+     фамилии; без нижней границы в узком окне она схлопнулась бы до нуля —
+     пусть лучше таблица прокрутится вбок */
+  table.tt{width:100%;min-width:1080px;border-collapse:collapse;font-size:13px;table-layout:fixed}
+  .tt td{overflow:hidden;text-overflow:ellipsis}
+  /* цифры одной ширины: время не «дышит» внутри ячейки при обновлении */
+  .tt td,.tt .sec{font-variant-numeric:tabular-nums}
   .tt th{position:sticky;top:0;z-index:1;background:var(--surface-2);color:var(--dim);
          font:600 10.5px/1 var(--ui);letter-spacing:.6px;text-transform:uppercase;
          text-align:right;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -109,6 +118,7 @@
   .badge.cam{background:var(--accent);color:#fff}
   .badge.pit{background:var(--warn);color:#1b1305}
   .empty{color:var(--light);padding:18px;text-align:center}
+  .empty[hidden]{display:none}
   mark{background:rgba(255,90,31,.35);color:#fff;border-radius:2px}
 
   /* редактор макросов */
@@ -155,7 +165,7 @@
     /* на телефоне прокручивается страница, а таблица — только вбок */
     .tblwrap{max-height:none}
     #q{flex:1;width:auto}
-    .tt .col-team,.tt .col-best{display:none}
+    table.tt{min-width:900px}
   }
 </style>
 </head>
@@ -191,9 +201,11 @@
   </div>
   <div class="tblwrap">
     <table class="tt">
+      <colgroup id="cols"></colgroup>
       <thead id="thead"></thead>
       <tbody id="rows"></tbody>
     </table>
+    <div class="empty" id="empty" hidden></div>
   </div>
 </section>
 
@@ -312,16 +324,113 @@ function hl(text, q){
        + esc(text.slice(i + q.length));
 }
 
-let headSig = '';
-function renderHead(n){
-  if(headSig === 'n' + n) return;
-  headSig = 'n' + n;
+// Таблица статична: колонки фиксированной ширины, строки создаются один раз
+// на машину и дальше меняют только текст. Раньше таблица пересобиралась
+// целиком каждые 0,6 с — и строка под курсором подменялась, и ширины
+// колонок гуляли. Смена позиций теперь переставляет готовые строки.
+
+const W = {pos: 46, num: 62, team: 150, int: 78, lead: 78, sec: 80,
+           last: 88, best: 88, inc: 54, pit: 56};
+let layoutN = -1;
+const rowEls = new Map();          // номер машины -> {tr, td, sig}
+
+function buildLayout(n){
+  layoutN = n;
+  const px = w => `<col style="width:${w}px">`;
+  let cols = px(W.pos) + px(W.num) + '<col>' + px(W.team) + px(W.int) + px(W.lead);
+  for(let i = 0; i < Math.max(1, n); i++) cols += px(W.sec);
+  cols += px(W.last) + px(W.best) + px(W.inc) + px(W.pit);
+  $('#cols').innerHTML = cols;
+
   let secs = '';
   for(let i = 0; i < n; i++) secs += `<th class="c">S${i + 1}</th>`;
   if(!n) secs = '<th class="c">Сектора</th>';
   $('#thead').innerHTML = `<tr><th>Поз</th><th class="c">№</th><th class="l">Пилот</th>
-    <th class="l col-team">Команда</th><th>Интервал</th><th>К лидеру</th>${secs}
-    <th>Посл.</th><th class="col-best">Лучший</th><th>Инц</th><th class="c">Пит</th></tr>`;
+    <th class="l">Команда</th><th>Интервал</th><th>К лидеру</th>${secs}
+    <th>Посл.</th><th>Лучший</th><th>Инц</th><th class="c">Пит</th></tr>`;
+
+  // число колонок поменялось — прежние строки уже не подходят
+  rowEls.forEach(o => o.tr.remove());
+  rowEls.clear();
+}
+
+function makeRow(){
+  const tr = document.createElement('tr');
+  const td = {};
+  const add = (key, cls) => {
+    const c = document.createElement('td');
+    if(cls) c.className = cls;
+    tr.appendChild(c);
+    td[key] = c;
+    return c;
+  };
+  add('pos', 'pos');
+  add('num', 'c').innerHTML = '<span class="num"></span>';
+  add('name', 'l');
+  add('team', 'l');
+  add('int', 'int');
+  add('lead', 'dim');
+  td.secs = [];
+  for(let i = 0; i < Math.max(1, layoutN); i++){
+    add('s' + i, 'c').innerHTML = '<span class="sec"></span>';
+    td.secs.push(td['s' + i].firstChild);
+  }
+  add('last', '');
+  add('best', 'dim');
+  add('inc', 'inc');
+  add('pit', 'c');
+  return {tr, td, sig: {}};
+}
+
+// Пишем в DOM, только если значение изменилось: браузеру нечего
+// пересчитывать, а выделение и наведение на строке не сбрасываются.
+function put(o, key, el, value, prop = 'textContent'){
+  if(o.sig[key] === value) return;
+  o.sig[key] = value;
+  el[prop] = value;
+}
+
+function fillRow(o, r, d, q, overall){
+  const td = o.td;
+  o.tr.dataset.car = r.car_number;
+  put(o, 'focus', o.tr, r.car_idx === d.focus_car_idx ? 'focus' : '', 'className');
+  put(o, 'pos', td.pos, String(r.position));
+  const chip = td.num.firstChild;
+  put(o, 'num', chip, r.car_number);
+  const bg = clsColor(r.class_name);
+  if(o.sig.bg !== bg){ o.sig.bg = bg; chip.style.background = bg; }
+  put(o, 'name', td.name, `<span class="nm">${hl(surname(r.name), q)}</span>`, 'innerHTML');
+  put(o, 'team', td.team, `<span class="tm">${hl(r.team || r.class_name || '', q)}</span>`, 'innerHTML');
+
+  const leader = r.position === 1;
+  put(o, 'intc', td.int, leader ? 'ldr' : 'int', 'className');
+  put(o, 'int', td.int, leader ? 'ЛИДЕР' : fmtGap(r.interval));
+  put(o, 'lead', td.lead, leader ? '' : fmtGap(r.gap));
+
+  const s = r.sectors || {};
+  if(!layoutN) put(o, 'sv0', td.secs[0], d.live ? 'нет разметки' : 'только live');
+  for(let i = 0; i < layoutN; i++){
+    let t = (s.current || [])[i], old = false;
+    if(t == null){ t = (s.last || [])[i]; old = t != null; }
+    put(o, 'sc' + i, td.secs[i],
+        'sec ' + secClass(t, i, s.best || [], overall) + (old ? ' old' : ''), 'className');
+    put(o, 'sv' + i, td.secs[i], t == null ? '—' : fmtT(t));
+  }
+
+  put(o, 'last', td.last, fmtT(r.last_lap));
+  put(o, 'best', td.best, fmtT(r.best_lap));
+  const inc = r.incidents;
+  put(o, 'incc', td.inc, 'inc' + (inc >= 8 ? ' hot' : ''), 'className');
+  put(o, 'inc', td.inc, inc == null ? '—' : inc + 'x');
+  put(o, 'pit', td.pit, r.in_pit ? '<span class="badge pit">ПИТ</span>'
+      : (r.pit_stops ? `<span class="dim">${r.pit_stops}</span>` : ''), 'innerHTML');
+}
+
+function showEmpty(text){
+  rowEls.forEach(o => o.tr.remove());
+  const e = $('#empty');
+  e.textContent = text;
+  e.hidden = false;
 }
 
 function visibleRows(){
@@ -332,16 +441,13 @@ function visibleRows(){
 }
 
 function renderCards(){
-  // Пока палец или мышь на строке — не перерисовываем: иначе строка
-  // подменится между нажатием и отпусканием, и клик потеряется.
-  if(Date.now() - S.hold < 450) return;
   const d = S.cards, body = $('#rows');
   const n = (d && d.sectors_n) || 0;
-  renderHead(n);
-  const cols = 10 + Math.max(1, n);
+  if(n !== layoutN) buildLayout(n);
+
   if(!d || !d.rows || !d.rows.length){
-    body.innerHTML = `<tr><td colspan="${cols}" class="empty">Пилотов нет: сим не подключён. Для проверки включи «Демо-данные» в панели iRC.</td></tr>`;
     $('#qinfo').textContent = '';
+    showEmpty('Пилотов нет: сим не подключён. Для проверки включи «Демо-данные» в панели iRC.');
     return;
   }
   const q = $('#q').value.trim();
@@ -349,39 +455,20 @@ function renderCards(){
   $('#qinfo').textContent = q
     ? `найдено ${rows.length} из ${d.rows.length}`
     : `${d.rows.length} пилотов · камера: клик по строке или Enter в поиске · «/» — к поиску`;
-  if(!rows.length){
-    body.innerHTML = `<tr><td colspan="${cols}" class="empty">Никого по запросу «${esc(q)}»</td></tr>`;
-    return;
-  }
+  if(!rows.length){ showEmpty(`Никого по запросу «${q}»`); return; }
+  $('#empty').hidden = true;
+
   const overall = d.best || [];
-  body.innerHTML = rows.map(r => {
-    const s = r.sectors || {current: [], last: [], best: []};
-    let secs = '';
-    for(let i = 0; i < n; i++){
-      let t = (s.current || [])[i], old = false;
-      if(t == null){ t = (s.last || [])[i]; old = t != null; }
-      secs += `<td class="c"><span class="sec ${secClass(t, i, s.best || [], overall)} ${old ? 'old' : ''}">${
-        t == null ? '—' : fmtT(t)}</span></td>`;
-    }
-    if(!n) secs = `<td class="c dim">${d.live ? 'нет разметки' : 'только live'}</td>`;
-    const focus = r.car_idx === d.focus_car_idx;
-    const leader = r.position === 1;
-    const inc = r.incidents;
-    return `<tr data-car="${esc(r.car_number)}" class="${focus ? 'focus' : ''}">
-      <td class="pos">${r.position}</td>
-      <td class="c"><span class="num" style="background:${clsColor(r.class_name)}">${esc(r.car_number)}</span></td>
-      <td class="l"><span class="nm">${hl(surname(r.name), q)}</span>${focus ? '<span class="badge cam">В КАДРЕ</span>' : ''}</td>
-      <td class="l col-team"><div class="tm">${hl(r.team || r.class_name || '', q)}</div></td>
-      <td class="${leader ? 'ldr' : 'int'}">${leader ? 'ЛИДЕР' : fmtGap(r.interval)}</td>
-      <td class="dim">${leader ? '' : fmtGap(r.gap)}</td>
-      ${secs}
-      <td>${fmtT(r.last_lap)}</td>
-      <td class="dim col-best">${fmtT(r.best_lap)}</td>
-      <td class="inc ${inc >= 8 ? 'hot' : ''}">${inc == null ? '—' : inc + 'x'}</td>
-      <td class="c">${r.in_pit ? '<span class="badge pit">ПИТ</span>'
-                               : (r.pit_stops ? `<span class="dim">${r.pit_stops}</span>` : '')}</td>
-    </tr>`;
-  }).join('');
+  const shown = new Set();
+  rows.forEach((r, i) => {
+    let o = rowEls.get(r.car_number);
+    if(!o){ o = makeRow(); rowEls.set(r.car_number, o); }
+    fillRow(o, r, d, q, overall);
+    shown.add(r.car_number);
+    // двигаем строку, только если она стоит не на своём месте
+    if(body.children[i] !== o.tr) body.insertBefore(o.tr, body.children[i] || null);
+  });
+  rowEls.forEach((o, num) => { if(!shown.has(num)) o.tr.remove(); });
 }
 
 // ---------- опрос ----------
@@ -419,9 +506,6 @@ async function loadMacros(){
 
 // ---------- действия ----------
 
-document.addEventListener('pointerdown', e => {
-  if(e.target.closest('tr[data-car]')) S.hold = Date.now();
-});
 
 document.addEventListener('click', async e => {
   const ov = e.target.closest('[data-ov]');
@@ -609,7 +693,6 @@ $('#modal').addEventListener('input', e => {
 
 async function switchTo(car){
   const r = await api('/api/broadcast/camera', {car});
-  S.hold = 0;
   if(r.ok){
     if(S.cards) S.cards.focus_car_idx = r.current.car_idx;
     S.cams.current = r.current;
@@ -618,7 +701,7 @@ async function switchTo(car){
   }else toast('Камера не переключилась: сим не готов');
 }
 
-$('#q').addEventListener('input', () => { S.hold = 0; renderCards(); });
+$('#q').addEventListener('input', renderCards);
 $('#q').addEventListener('keydown', e => {
   if(e.key === 'Enter'){
     // точное совпадение номера важнее: «1» — это №1, а не №14, идущий выше
