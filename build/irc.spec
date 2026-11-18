@@ -44,6 +44,8 @@ a = Analysis(
         # зависимости приложения
         'pystray', 'pystray._win32', 'PIL', 'PIL.Image', 'PIL.ImageDraw',
         'irsdk', 'yaml', 'PIL.ImageTk',
+        # окна оверлеев поверх сима рисует PIL (suite/core/ui/ov_paint.py)
+        'PIL.ImageFont', 'PIL.ImageChops', 'PIL.ImageFilter', 'PIL.ImageColor', 'winreg',
         # stdlib, нужный бандлу
         'sqlite3', 'queue', 'http.server', 'socketserver', 'dataclasses',
         'webbrowser', 'collections.abc', 'typing',

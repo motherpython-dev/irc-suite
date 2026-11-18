@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iRC — стиль F</title>
+<style>
+@font-face{font-family:'Exo 2';src:url(data:font/ttf;base64,__EXO__) format('truetype');font-weight:100 900}
+@font-face{font-family:'Roboto Mono';src:url(data:font/ttf;base64,__MONO__) format('truetype');font-weight:100 700}
+:root{--acc:#FF5A1F;--fg:#EAEEF5;--dim:#8E8E98;--mid:#C3C9D3;--faint:#5d636e;--line:rgba(255,255,255,.06);--up:#2FD16A;--dn:#FF4D4D;--yel:#FFD200}
+*{box-sizing:border-box}
+html,body{margin:0;background:#06070a;color:var(--fg);font:14px 'Exo 2',system-ui,sans-serif}
+.frame{max-width:1320px;margin:20px auto 40px;border-radius:10px;overflow:hidden;border:1px solid #1c1f26;min-height:820px;display:flex;flex-direction:column;background:#0b0c10}
+/* шапка — стиль F, меню 8 */
+.top{display:flex;align-items:center;gap:4px;height:54px;padding:0 16px;background:linear-gradient(180deg,#14151b,#0f1015);border-bottom:1px solid #1f232b;flex:none}
+.logo{height:22px;margin-right:20px}
+.tab{height:54px;display:flex;align-items:center;padding:0 13px;color:var(--dim);position:relative;cursor:pointer;white-space:nowrap;
+  font:700 14.5px 'Bahnschrift';font-stretch:75%;letter-spacing:.08em;text-transform:uppercase}
+.tab:hover{color:var(--mid)}
+.tab.on{color:#fff}
+.tab.on::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--acc);box-shadow:0 0 12px var(--acc),0 0 3px var(--acc)}
+.tab kbd{font:500 9px 'Roboto Mono';color:#4d535d;margin-left:6px;letter-spacing:0}
+.sp{flex:1}
+.acct{display:flex;align-items:center;gap:8px;font:800 12px 'Exo 2';letter-spacing:.1em;text-transform:uppercase}
+.acct i{width:24px;height:24px;border-radius:5px;background:var(--fg);color:#000;font-style:normal;display:grid;place-items:center;font-size:12px}
+.body{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.status{height:28px;flex:none;display:flex;align-items:center;gap:18px;padding:0 16px;font:800 10px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;color:var(--dim);background:#0f1015;border-top:1px solid #1f232b}
+.status .ok{color:var(--up)} .status .warn{color:#F59E0B}
+/* панели — стиль F */
+.p{position:relative;display:flex;flex-direction:column;min-width:0;background:linear-gradient(180deg,#19161b 0%,#13151a 45%,#121419 100%);border:1px solid rgba(255,255,255,.07);border-radius:7px;box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.ph{position:relative;display:flex;align-items:flex-end;gap:10px;padding:10px 14px 8px;border-bottom:1px solid var(--line)}
+.ph::before{content:"";position:absolute;left:0;top:10px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
+.ph .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ph .k{font:800 9px 'Exo 2';letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
+.ph .h{font:800 13.5px 'Exo 2';letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.ph .stats{margin-left:auto;display:flex;gap:16px;align-items:flex-end}
+.stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.stat span{font:800 9px 'Exo 2';letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.stat b{font:700 13px 'Roboto Mono';color:var(--fg)}
+.pb{padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px;flex:1;min-width:0}
+.big{font:700 44px/1 'Roboto Mono';letter-spacing:-.02em}
+.cap{font:800 10px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.dimt{color:var(--dim);font-size:12.5px;line-height:1.45}
+.note{color:var(--dim);font-size:12px;line-height:1.5;border-top:1px solid var(--line);padding-top:10px}
+.row{display:flex;align-items:center;gap:8px;min-width:0}
+.wrapr{flex-wrap:wrap}
+.grid{display:grid;gap:12px;min-width:0}
+/* кнопки — вариант 4 «световая кромка» */
+.btn{font:800 10.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--fg);height:30px;padding:0 13px;display:inline-flex;align-items:center;justify-content:space-between;gap:10px;white-space:nowrap;border:0;cursor:pointer;
+  background:#1a1d24;border-radius:5px 5px 2px 2px;box-shadow:inset 0 -2px 0 #2e3440;transition:box-shadow .15s,background .15s}
+.btn kbd{font:700 9px 'Roboto Mono';letter-spacing:.04em;color:var(--dim)}
+.btn:hover{background:#1e222a;box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.6)}
+.btn.st-on{box-shadow:inset 0 -2px 0 var(--up)} .btn.st-on kbd{color:var(--up)}
+.btn.st-on:hover{box-shadow:inset 0 -2px 0 var(--up),0 6px 12px -6px rgba(47,209,106,.6)}
+.btn.pri{background:linear-gradient(180deg,#2a1d19,#22171a);color:#fff;box-shadow:inset 0 -3px 0 var(--acc),0 8px 16px -6px rgba(255,90,31,.75)}
+.btn.pri kbd{color:var(--acc)}
+.btn.pri:hover{background:linear-gradient(180deg,#33211b,#28191b);box-shadow:inset 0 -3px 0 var(--acc),0 10px 20px -6px rgba(255,90,31,.95)}
+.btn.warn{box-shadow:inset 0 -2px 0 var(--yel)} .btn.warn kbd{color:var(--yel)}
+.btn.bad{color:#ffb3a8;box-shadow:inset 0 -2px 0 var(--dn)}
+.btn.air{background:linear-gradient(180deg,#2a1717,#211517);color:#fff;box-shadow:inset 0 -2px 0 var(--dn),0 6px 14px -6px rgba(255,77,77,.8)}
+.btn.s{height:26px;padding:0 10px;font-size:10px}
+.btn.full{width:100%}
+.seg{display:inline-flex;background:#1a1d24;border-radius:5px 5px 2px 2px;flex:none}
+.seg button{font:800 10.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim);background:transparent;border:0;height:28px;padding:0 13px;cursor:pointer;box-shadow:inset 0 -2px 0 #2e3440}
+.seg button:hover{color:var(--mid)}
+.seg button.on{color:#fff;box-shadow:inset 0 -2px 0 var(--up),0 6px 12px -6px rgba(47,209,106,.7)}
+.seg button.on.w{box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.7)}
+.seg.big button{height:34px;padding:0 20px;font-size:12px}
+.chip{font:800 10.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;height:28px;padding:0 12px;display:inline-flex;align-items:center;border-radius:5px 5px 2px 2px;cursor:pointer;color:#fff;
+  background:linear-gradient(180deg,#2a1d19,#22171a);box-shadow:inset 0 -2px 0 var(--acc)}
+.chip.off{color:var(--mid);background:#1a1d24;box-shadow:inset 0 -2px 0 #2e3440}
+/* поля, ползунки */
+.kv{display:grid;grid-template-columns:132px minmax(0,1fr);align-items:center;gap:9px 12px}
+.kv.wide{grid-template-columns:repeat(auto-fill,128px minmax(250px,1fr))}
+.kv>.full{grid-column:1/-1}
+.kv>.rest{grid-column:2/-1}
+.kv-sep{grid-column:1/-1;border-top:1px solid var(--line);margin:2px 0}
+.lab{font:800 9.5px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:#71767f}
+.inp{height:30px;border-radius:5px 5px 2px 2px;border:0;background:#101217;box-shadow:inset 0 -2px 0 #2a2f39;color:var(--fg);padding:0 10px;font:500 12.5px 'Exo 2';width:100%;outline:0}
+.inp:focus{box-shadow:inset 0 -2px 0 var(--acc)}
+.inp.mono{font:500 12px 'Roboto Mono'}
+.rng{display:flex;align-items:center;gap:10px}
+.rng .tr{flex:1;height:4px;border-radius:2px;background:#262a33;position:relative}
+.rng .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--acc);box-shadow:0 0 8px rgba(255,90,31,.6)}
+.rng .tr b{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(255,90,31,.35)}
+.rng span{font:700 12px 'Roboto Mono';min-width:46px;text-align:right}
+.colbtn{font:800 10px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;height:26px;padding:0 10px;border:0;border-radius:5px 5px 2px 2px;background:#1a1d24;color:var(--dim);box-shadow:inset 0 -2px 0 #2e3440;cursor:pointer}
+.colbtn.on{color:#fff;box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.6)}
+/* списки */
+.rows{display:flex;flex-direction:column;padding:4px 0 8px}
+.r{display:flex;align-items:center;gap:10px;height:30px;padding:0 12px;margin:0 6px;border-radius:4px;font-size:13px;min-width:0;position:relative}
+.r+.r{box-shadow:0 -1px 0 rgba(255,255,255,.03)}
+.r.me{background:linear-gradient(90deg,rgba(255,90,31,.26),rgba(255,90,31,.06))}
+.r.hd{height:24px;font:800 9px 'Exo 2';letter-spacing:.18em;text-transform:uppercase;color:#6b707b;box-shadow:none}
+.r .tm{font:500 12px 'Roboto Mono';color:var(--dim);flex:none}
+.r .md{font:800 10px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;width:110px;flex:none}
+.r .ev{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mono{font-family:'Roboto Mono'}
+.plate{width:32px;height:18px;border-radius:3px;display:inline-grid;place-items:center;flex:none;font:italic 900 12.5px 'Exo 2';color:#fff;text-shadow:0 1px 1.5px rgba(0,0,0,.8)}
+.tag{font:800 9.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;padding:3px 7px;border-radius:4px;white-space:nowrap}
+.ring text{font-family:'Roboto Mono'}
+.tyre{background:#101217;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+.tyre b{font:700 16px 'Roboto Mono'}
+.tw{display:flex;gap:4px}.tw i{flex:1;height:4px;border-radius:2px}
+.mini{background:linear-gradient(180deg,#141a24,#0f1218);border-radius:6px;padding:6px 0;font-size:12px}
+.mini .r{height:22px;margin:0 4px;padding:0 8px}
+.hint{font:500 11px 'Roboto Mono';color:#4f555f}
+</style></head><body>
+<div class="frame" id="app"></div>
+<script>
+const LOGO = 'data:image/png;base64,__LOGO__';
+let sc = 'overview', bcMode = 'prep', bcView = 'set', ovSel = 0;
+const TABS = [['overview', 'Обзор'], ['racecontrol', 'Рейс-контроль'], ['broadcast', 'Трансляция'], ['pilot', 'Оверлей'], ['rutp', 'RUTP']];
+const plate = (n, c1, c2) => `<span class="plate" style="background:${c2 ? `linear-gradient(90deg,${c1},${c2})` : c1}"><span style="transform:skewX(-10deg)">${n}</span></span>`;
+const head = (k, h, stats = []) => `<div class="ph"><div class="t">${k ? `<span class="k">${k}</span>` : ''}<span class="h">${h}</span></div>
+  ${stats.length ? `<div class="stats">${stats.map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('')}</div>` : ''}</div>`;
+const seg = (opts, on = 0, w = false) => `<span class="seg">${opts.map((o, i) => `<button class="${i === on ? 'on' + (w ? ' w' : '') : ''}">${o}</button>`).join('')}</span>`;
+const onoff = (on = 1) => seg(['Вкл', 'Выкл'], on ? 0 : 1);
+const rng = (v, lo, hi, u = '') => `<div class="rng"><span class="tr"><i style="width:${(v - lo) / (hi - lo) * 100}%"></i><b style="left:${(v - lo) / (hi - lo) * 100}%"></b></span><span>${v}${u}</span></div>`;
+function ring(v, lab){
+  const R = 30, C = 2 * Math.PI * R, sw = .75;
+  return `<svg class="ring" width="84" height="84" viewBox="-42 -42 84 84" style="flex:none">
+    <circle r="${R}" fill="none" stroke="#232831" stroke-width="7" stroke-dasharray="${C * sw} ${C}" transform="rotate(135)" stroke-linecap="round"/>
+    <circle r="${R}" fill="none" stroke="#FF5A1F" stroke-width="7" stroke-dasharray="${C * sw * v} ${C}" transform="rotate(135)" stroke-linecap="round" style="filter:drop-shadow(0 0 4px rgba(255,90,31,.6))"/>
+    <text y="6" text-anchor="middle" font-weight="700" font-size="20" fill="#fff">${lab}</text></svg>`;
+}
+const DRV = [['777', 'Oleg Varfolomeev', '#E2C04A'], ['77', 'Ilya Sidnev', '#8B5CF6'], ['32', 'Alexander Strutsev', '#64748B'], ['15', 'Dmitry Koshelev', '#F97316'],
+  ['73', 'Ildar Sharipov', '#EC4899'], ['45', 'Pavel Pisarev', '#E63946'], ['2', 'Sergi Sobetov', '#51127F', '#20F3BA'], ['18', 'Jaroslav Gladkov', '#10B981'],
+  ['3', 'Ilia Nikitin', '#1D4ED8'], ['93', 'Sergey Chirik', '#64748B']];
+
+/* ---------- Обзор ---------- */
+function overview(){
+  const MODS = [['racecontrol', 'LIVE', 'Рейс-контроль', 3, .3, 'инцидентов', 'NASCAR Cup · этап 7'], ['broadcast', 'ON AIR', 'Трансляция', 4, .57, 'в эфире', 'Башня · Дельта · Погода · Питы'],
+    ['pilot', 'PILOT', 'Оверлей', 3, .5, 'окон включено', 'Standings · Радар · Двигатель'], ['telemetry', 'REC', 'Телеметрия', 128, .8, 'кругов записано', 'Las Vegas · Next Gen']];
+  const cards = MODS.map(([id, k, t, big, g, cap, sub]) => `<section class="p">${head(k, t, [['статус', 'ОК']])}<div class="pb">
+    <div class="row" style="gap:14px">${ring(g, big)}<div><div class="cap">${cap}</div><div class="dimt" style="margin-top:4px">${sub}</div></div></div>
+    <div class="row" style="justify-content:space-between;margin-top:auto">${onoff()}<button class="btn" data-go="${id}">Открыть</button></div></div></section>`).join('');
+  const LOG = [['21:42', 'Рейс-контроль', 'инцидент: #2 и #18, контакт, круг 51', 'var(--acc)'], ['21:41', 'Трансляция', 'в эфир: дельта #777 — #77', ''],
+    ['21:40', 'Оверлей', 'лампа перегрева воды: 118° (Next Gen)', 'var(--dn)'], ['21:38', 'Рейс-контроль', 'решение: #444 — гоночный инцидент', ''],
+    ['21:36', 'RUTP', 'загружено ливрей: 31 из 34', 'var(--up)'], ['21:35', 'Программа', 'сессия: Race, Las Vegas Motor Speedway', ''], ['21:30', 'Телеметрия', 'стинт 2: расход 2,91 л/круг', '']];
+  return `<div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">${cards}</div>
+  <div class="grid" style="grid-template-columns:1fr 1fr;flex:1">
+    <section class="p">${head('', 'Действия')}<div class="pb">
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn st-on">Рейс-контроль поверх сима<kbd>показан</kbd></button><button class="btn">Пульт поверх сима<kbd>скрыт</kbd></button>
+        <button class="btn" data-go="broadcast">Редактор трансляции<kbd>5</kbd></button><button class="btn pri">Включить всё к гонке<kbd>F9</kbd></button></div>
+      <div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:10px">
+        <div><div class="cap">Обновления</div><div class="dimt">установлена 2.54.4 · проверка раз в час</div></div><button class="btn">Проверить</button></div></div></section>
+    <section class="p">${head('', 'Журнал', [['событий', '60']])}<div class="rows">${LOG.map(([t, m, e, c]) =>
+      `<div class="r"><span class="tm" style="width:44px">${t}</span><span class="md" style="color:${c || 'var(--mid)'}">${m}</span><span class="ev">${e}</span></div>`).join('')}</div></section></div>`;
+}
+
+/* ---------- Рейс-контроль ---------- */
+function racecontrol(){
+  const INC = [['21:42', 51, [['2', '#51127F', '#20F3BA'], ['18', '#10B981']], 'Sobetov · Gladkov', 'контакт · +4x', 'новый', 'var(--acc)', 1],
+    ['21:39', 49, [['93', '#64748B']], 'Sergey Chirik', 'вылет · +2x', 'новый', 'var(--acc)'],
+    ['21:38', 48, [['444', '#EC4899'], ['3', '#1D4ED8'], ['16', '#10B981']], 'Bokobokov · Nikitin · Dzhumatov', 'завал · +4x', 'гоночный', 'var(--dim)'],
+    ['21:31', 44, [['31', '#F59E0B']], 'Dmitriy Andreev', 'скорость в питах', 'проезд', 'var(--dn)'],
+    ['21:22', 38, [['77', '#8B5CF6'], ['32', '#64748B']], 'Sidnev · Strutsev', 'контакт · +2x', 'после гонки', 'var(--yel)'],
+    ['21:14', 31, [['15', '#F97316']], 'Dmitry Koshelev', 'вылет · +1x', 'гоночный', 'var(--dim)']];
+  const bar = `<section class="p"><div class="pb" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px">
+    <button class="btn warn">Жёлтый<kbd>Y</kbd></button>
+    <span class="row"><span class="lab">кругов под жёлтым</span><span class="seg"><button>−</button><button class="on w" style="min-width:36px">2</button><button>+</button></span></span>
+    <button class="btn">Снять все ЧФ</button><span class="sp"></span>
+    <button class="btn st-on">Поверх сима<kbd>показан</kbd></button><button class="btn">‹ Маркер iR</button><button class="btn">Маркер iR ›</button>
+    <button class="btn">Камера: к live<kbd>L</kbd></button></div></section>`;
+  const list = `<section class="p">${head('RACE · LAS VEGAS · 34 машины', 'Инциденты', [['круг', '51/267'], ['всего', '14'], ['новых', '2']])}
+    <div class="row" style="padding:10px 14px 4px">${seg(['Все', 'Новые', 'Решено', 'После гонки'], 1, true)}<span class="sp"></span><span class="hint">этап 7 · NASCAR Cup</span></div>
+    <div class="rows"><div class="r hd"><span style="width:44px">время</span><span style="width:34px">кр</span><span style="width:112px">№</span><span style="flex:1">пилот</span><span style="width:120px">что</span><span style="width:90px;text-align:right">решение</span></div>
+    ${INC.map(([t, l, cars, nm, what, st, c, me]) => `<div class="r ${me ? 'me' : ''}" style="height:34px"><span class="tm" style="width:44px">${t}</span><span class="tm" style="width:34px">${l}</span>
+      <span class="row" style="gap:4px;width:112px">${cars.map(x => plate(...x)).join('')}</span><span class="ev" style="flex:1;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:12.5px">${nm}</span>
+      <span class="ev dimt" style="width:120px">${what}</span><span style="width:90px;text-align:right"><span class="tag" style="color:${c};background:${c === 'var(--dim)' ? 'rgba(142,142,152,.12)' : 'rgba(255,255,255,.05)'}">${st}</span></span></div>`).join('')}</div></section>`;
+  const det = `<section class="p">${head('новый · круг 51 · 21:42:07', 'Инцидент #14')}<div class="pb">
+    <div class="row" style="gap:6px">${plate('2', '#51127F', '#20F3BA')}${plate('18', '#10B981')}<span style="font:800 13.5px 'Exo 2';letter-spacing:.06em;text-transform:uppercase;margin-left:6px">Sobetov · Gladkov</span></div>
+    <div class="dimt">Контакт в 3-м повороте · +4x у #2, +2x у #18 · рядом были #93, #3</div>
+    <div class="row wrapr"><button class="btn">−10 с</button><button class="btn pri">▶ Повтор<kbd>Space</kbd></button><button class="btn">Камера: TV1</button></div>
+    <div class="kv-sep"></div><div class="cap">Исход</div>
+    <div class="grid" style="grid-template-columns:1fr 1fr 1fr;gap:8px"><button class="btn">Гоночный<kbd>Z</kbd></button><button class="btn bad">Наказать<kbd>X</kbd></button><button class="btn warn">После гонки<kbd>C</kbd></button></div>
+    <div class="row wrapr">${seg(['Проезд', '+5 с', 'В конец', 'ЧФ', 'DQ'], 0, true)}<span class="sp"></span><span class="hint">кому: #2</span></div>
+    <div class="note">Гоночный — никто не наказан, запись уходит в журнал этапа. Наказать — выдать наказание прямо в гонке. После гонки — карточка маршалу в «Судействе».</div></div></section>`;
+  return `${bar}<div class="grid" style="grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);align-items:start">${list}${det}</div>`;
+}
+
+/* ---------- Трансляция ---------- */
+const OVS = [['F1', 'Башня позиций', 1], ['F2', 'Стартовая решётка', 0], ['F3', 'Комментаторы', 0], ['F4', 'Дельта пилотов', 1], ['F5', 'Пит-стопы', 1], ['F6', 'Трасса и погода', 1], ['F7', 'События гонки', 0], ['F8', 'Лучший круг', 0]];
+function bcBar(){
+  return `<div class="row" style="gap:12px"><span class="seg big"><button class="${bcMode === 'prep' ? 'on w' : ''}" data-bc="prep">Подготовка</button><button class="${bcMode === 'live' ? 'on w' : ''}" data-bc="live" style="${bcMode === 'live' ? 'box-shadow:inset 0 -2px 0 var(--dn),0 6px 12px -6px rgba(255,77,77,.8)' : ''}">● Эфир</button></span>
+    ${bcMode === 'prep' ? `<span class="seg"><button class="${bcView === 'set' ? 'on w' : ''}" data-bv="set">Настройки</button><button class="${bcView === 'edit' ? 'on w' : ''}" data-bv="edit">Оформление</button></span>` : ''}
+    <span class="dimt">${bcMode === 'prep' ? 'до гонки: настройки и оформление оверлеев' : 'во время гонки: эфир, камеры, пилоты, макросы'}</span><span class="sp"></span>
+    <button class="btn">Демо выключено</button><span class="tag" style="color:#fff;background:#C81E1E;box-shadow:0 0 12px rgba(200,30,30,.6)">● в эфире: 4</span></div>`;
+}
+function tower(){
+  return `<div class="mini">${DRV.slice(0, 8).map(([n, nm, c1, c2], i) => `<div class="r ${n === '2' ? 'me' : ''}"><span class="tm" style="width:16px;text-align:right">${i + 1}</span>${plate(n, c1, c2)}
+    <span class="ev" style="flex:1;font-weight:700;text-transform:uppercase;font-size:11.5px">${nm.split(' ')[1]}</span><span class="tm">${i ? '+' + (i * 0.41 + i * i * .07).toFixed(3) : 'ЛИДЕР'}</span></div>`).join('')}</div>`;
+}
+function broadcast(){
+  if(bcMode === 'live') return bcBar() + bcLive();
+  if(bcView === 'edit') return bcBar() + `<section class="p" style="flex:1">${head('редактор', 'Оформление оверлеев')}<div class="pb" style="flex-direction:row;gap:12px">
+    <div style="width:200px" class="rows">${OVS.map(([k, t], i) => `<div class="r ${i === ovSel ? 'me' : ''}"><span class="tm">${k}</span><span class="ev">${t}</span></div>`).join('')}</div>
+    <div style="flex:1;display:grid;place-items:center;background:repeating-conic-gradient(#14171d 0 25%,#101318 0 50%) 0 0/24px 24px;border-radius:6px;min-height:420px"><div style="width:300px">${tower()}</div></div>
+    <div style="width:260px" class="kv"><span class="lab">Слой</span><span>Строки</span><span class="lab">Шрифт</span><input class="inp" value="Exo 2"><span class="lab">Размер</span>${rng(13, 8, 24, ' px')}<span class="lab">Цвет</span><input class="inp mono" value="#EAEEF5"><span class="lab">Скругление</span>${rng(6, 0, 16, ' px')}</div>
+    </div></section>`;
+  const list = `<section class="p">${head('', 'Оверлеи', [['в эфире', '4']])}<div class="pb" style="padding-top:8px">
+    <div class="row">${onoff()}<span class="dimt">машин в кадре: 34</span></div>
+    <div class="rows" style="padding:0;margin:0 -6px">${OVS.map(([k, t, on], i) => `<div class="r ${i === ovSel ? 'me' : ''}" data-ov="${i}" style="height:34px;cursor:pointer"><span class="tm" style="width:24px">${k}</span><span class="ev" style="flex:1;font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:12.5px">${t}</span>
+      <button class="btn s ${on ? 'air' : ''}">${on ? '● в эфире' : 'В эфир'}</button></div>`).join('')}</div>
+    <button class="btn full">Убрать всё<kbd>Esc</kbd></button></div></section>`;
+  const out = `<section class="p">${head('', 'Вывод')}<div class="pb"><div class="dimt">окна поверх сима · захват экрана в OBS</div>
+    <div class="kv"><span class="lab">OBS на другом ПК</span><div class="row"><input class="inp mono" value="http://192.168.0.6:8899/ov/tower"><button class="btn s">Копировать</button></div>
+    <span class="lab">Пульт поверх сима</span>${onoff(0)}<span class="lab">С телефона</span>${onoff(1)}
+    <span class="lab">Адрес пульта</span><input class="inp mono" value="http://192.168.0.6:8899/deck"></div>
+    <div class="note">Пульт в своей сети открыт без пароля — доступ с телефона включайте в домашней сети, не в открытом Wi-Fi.</div></div></section>`;
+  const set = `<section class="p">${head('не в эфире', OVS[ovSel][1])}<div class="pb">
+    <div class="kv"><span class="lab">Заголовок</span><input class="inp" value="NASCAR CUP · ЭТАП 7"><span class="lab">Закреплено сверху</span>${rng(10, 0, 20)}
+    <span class="lab">Окно у камеры</span>${rng(8, 0, 16)}<span class="lab">Гэп</span>${seg(['До лидера', 'До впереди'], 0, true)}
+    <span class="lab">Держать в кадре</span><input class="inp" placeholder="номер машины"><span class="lab">Пит-стопы</span>${onoff()}</div>
+    <div class="row"><button class="btn pri">Применить</button><button class="btn" data-bv="edit">Оформление</button></div>
+    <div class="cap" style="margin-top:4px">Превью</div>${tower()}</div></section>`;
+  return bcBar() + `<div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr);align-items:start">${list}${out}${set}</div>`;
+}
+function bcLive(){
+  const keys = `<section class="p">${head('', 'Эфир', [['в эфире', '4']])}<div class="pb"><div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+    ${OVS.map(([k, t, on]) => `<button class="btn ${on ? 'air' : ''}" style="height:46px;flex-direction:column;justify-content:center;gap:3px">${t.split(' ')[0]}<kbd>${k}</kbd></button>`).join('')}</div>
+    <button class="btn full">Убрать всё<kbd>Esc</kbd></button></div></section>`;
+  const cams = `<section class="p">${head('клик по пилоту — камера на него', 'Камера', [['сейчас', 'TV1 · #2']])}<div class="pb"><div class="row wrapr">
+    ${['Nose', 'Gearbox', 'Roll Bar', 'Cockpit', 'Chase', 'Far Chase', 'TV1', 'TV2', 'TV3', 'Blimp', 'Chopper', 'Pit Lane'].map(c => `<span class="chip ${c === 'TV1' ? '' : 'off'}">${c}</span>`).join('')}</div></div></section>`;
+  const pil = `<section class="p">${head('Enter — камера на первого найденного', 'Пилоты')}<div class="pb" style="padding-bottom:4px"><input class="inp" placeholder="номер или фамилия"></div>
+    <div class="rows"><div class="r hd"><span style="width:18px">p</span><span style="width:36px">№</span><span style="flex:1">пилот</span><span style="width:64px;text-align:right">интервал</span><span style="width:60px;text-align:right">посл.</span><span style="width:30px;text-align:right">инц</span><span style="width:28px;text-align:right">пит</span></div>
+    ${DRV.slice(0, 9).map(([n, nm, c1, c2], i) => `<div class="r ${n === '2' ? 'me' : ''}"><span class="tm" style="width:18px">${i + 1}</span><span style="width:36px">${plate(n, c1, c2)}</span><span class="ev" style="flex:1;font-weight:700;text-transform:uppercase;font-size:12px">${nm}</span>
+      <span class="tm" style="width:64px;text-align:right">${i ? '+' + (i * .41).toFixed(3) : '—'}</span><span class="tm" style="width:60px;text-align:right">31.${880 + i * 7}</span><span class="tm" style="width:30px;text-align:right">${i % 3 * 2}x</span><span class="tm" style="width:28px;text-align:right">${i % 2 + 1}</span></div>`).join('')}</div></section>`;
+  const mac = `<section class="p">${head('', 'Макросы')}<div class="pb"><div class="row wrapr"><button class="btn">Кокпит + разрыв</button><button class="btn">Старт: вертолёт</button><button class="btn">Финиш: лидер</button></div>
+    <button class="btn">Редактор макросов</button><div class="note">Макрос — цепочка шагов: камера, пауза, оверлей. Один клик — и графика с камерой меняются по сценарию.</div>
+    <div class="kv"><span class="lab">Поверх сима</span>${onoff(0)}<span class="lab">С телефона</span>${onoff(1)}</div></div></section>`;
+  return `<div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,.9fr);align-items:start">
+    <div class="grid">${keys}${cams}</div>${pil}${mac}</div>`;
+}
+
+/* ---------- Оверлей ---------- */
+function pilot(){
+  const COLS = ['▲▼ к старту', 'iRating', 'Прогноз iR', 'Лицензия', 'Флаги', 'Пит-стопы', 'Последний пит', 'Сектора', 'Последний', 'Лучший', 'Отрыв'];
+  const cols = (on) => `<span class="row wrapr rest" style="gap:6px">${COLS.map((c, i) => `<button class="colbtn ${on.includes(i) ? 'on' : ''}">${c}</button>`).join('')}</span>`;
+  const plHead = (id, title, on, note) => `<div class="row" style="padding:12px 14px 0">${onoff(on)}<span class="dimt" style="flex:1">${note}</span><button class="btn s">Сбросить</button></div>`;
+  const place = `<span class="lab">Закрепить</span>${onoff(0)}<span class="lab">Привязка</span>${seg(['↖', '↑', '↗', '↙', '↓', '↘'], 0, true)}`;
+  const st = `<section class="p" style="grid-column:1/-1">${head('показывается', 'Standings')}${plHead('st', 'Standings', 1, 'места, отрывы, круги; первые места и окно вокруг вас')}<div class="pb">
+    <div class="kv wide">${place}<span class="lab">Размер</span>${rng(100, 60, 160, '%')}<span class="lab">Первые места</span>${rng(3, 0, 10)}
+      <span class="lab">Вокруг меня, ±</span>${rng(4, 1, 10)}<span class="lab">Показывать в повторе</span>${onoff()}
+      <span class="lab">Шапка</span>${seg(['Сверху', 'Снизу', 'Нет'], 0, true)}<span class="lab">Инциденты в шапке</span>${onoff()}
+      <span class="lab">Таблица</span>${seg(['Общий зачёт', 'По классам'], 0, true)}<span></span><span></span>
+      <i class="kv-sep"></i><span class="lab" style="align-self:start;padding-top:6px">Колонки · гонка</span>${cols([0, 1, 3, 4, 8, 10])}
+      <i class="kv-sep"></i><span class="lab" style="align-self:start;padding-top:6px">Практика, квала</span>${cols([1, 3, 4, 9, 10])}
+      <i class="kv-sep"></i><span class="lab" style="align-self:start;padding-top:6px">Шрифты</span><span class="row wrapr rest" style="gap:8px 16px">
+        <span class="row"><span class="dimt">Место</span>${seg(['Exo 2', 'Bahnschrift', 'Segoe UI'], 1, true)}</span><span class="row"><span class="dimt">Фамилии</span>${seg(['Exo 2', 'Bahnschrift', 'Franklin'], 0, true)}</span>
+        <span class="row"><span class="dimt">Цифры</span>${seg(['Roboto Mono', 'Bahnschrift'], 1, true)}</span></span></div></div></section>`;
+  const rel = `<section class="p" style="grid-column:1/-1">${head('скрыт', 'Relative')}${plHead('rel', 'Relative', 0, 'кто рядом на трассе: впереди и сзади, по секундам')}<div class="pb">
+    <div class="kv wide">${place}<span class="lab">Размер</span>${rng(100, 60, 160, '%')}<span class="lab">Впереди и сзади</span>${rng(3, 1, 6)}
+      <span class="lab">Показывать в повторе</span>${onoff()}<span class="lab">Шапка</span>${seg(['Сверху', 'Снизу', 'Нет'], 0, true)}
+      <i class="kv-sep"></i><span class="lab" style="align-self:start;padding-top:6px">Колонки</span>${cols([1, 3, 4, 10])}</div></div></section>`;
+  const card = (k, t, on, note, body) => `<section class="p">${head(k, t)}${plHead(t, t, on, note)}<div class="pb"><div class="kv">${place}${body}</div></div></section>`;
+  const voice = `<section class="p">${head('в Standings', 'Кто говорит в рацию')}<div class="pb"><div class="kv"><span class="lab full">Где показывать</span><span class="full">${seg(['Relative', 'Standings', 'Оба', 'Выкл'], 1, true)}</span>
+    <span class="lab">Строка «Говорит»</span>${onoff()}<span class="lab">Частота</span>${onoff()}</div>
+    <div class="note">У говорящего вместо рейтинга, времени и отрыва — динамик и звуковая волна.</div></div></section>`;
+  return `<section class="p">${head('работает', 'Оверлей')}<div class="pb" style="flex-direction:row;align-items:center">${onoff()}<span class="dimt" style="flex:1">Окна поверх iRacing на этом компьютере: Standings, Relative, радар, ветер, двигатель. iRacing — в оконном режиме без рамки.</span><button class="btn">Демо выключено</button></div></section>
+  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));align-items:start">${st}${rel}
+    ${voice}
+    ${card('скрыт', 'Радар', 0, 'две полосы по бокам — машина слева или справа', `<span class="lab">Между полосами</span>${rng(777, 120, 1200, ' px')}<span class="lab">Длина полос</span>${rng(106, 40, 400, ' px')}<span class="lab">Толщина</span>${rng(26, 6, 60, ' px')}<span class="lab">Изгиб</span>${rng(0, -60, 60, ' px')}<span class="lab">Длина машины</span>${rng(500, 300, 600, ' см')}<span class="lab">Индикатор всегда</span>${onoff(0)}`)}
+    ${card('скрыт', 'Ветер', 0, 'откуда дует относительно машины', `<span class="lab">Размер</span>${rng(70, 40, 160, '%')}<span class="lab">Вид</span>${seg(['Кольцо', 'Карточка'], 0, true)}`)}
+    ${card('показывается', 'Двигатель', 1, 'вода, масло, обороты; красное — по лампам iRacing', `<span class="lab">Размер</span>${rng(100, 60, 160, '%')}<span class="lab">Вид</span>${seg(['Полукруги', 'Карточка'], 0, true)}<span class="lab">Единицы</span>${seg(['°C', '°F'], 0, true)}<span class="lab">Обороты</span>${onoff()}<span class="lab">Давление масла</span>${onoff()}<span class="lab">Запомнено</span><span class="dimt">3 машины · Next Gen: вода 118°</span>`)}
+  </div>`;
+}
+
+/* ---------- RUTP ---------- */
+function rutp(){
+  const st = [['ok', 'загружена', 'var(--up)'], ['ok', 'загружена', 'var(--up)'], ['none', 'нет на TP', 'var(--dim)'], ['ok', 'загружена', 'var(--up)'], ['wait', 'загружаю…', 'var(--acc)'], ['self', 'своя', '#7FA4FF']];
+  const rows = DRV.map(([n, nm, c1, c2], i) => { const s = n === '2' ? st[5] : st[i % 5];
+    return `<div class="r ${n === '2' ? 'me' : ''}"><span style="width:40px">${plate(n, c1, c2)}</span><span class="ev" style="flex:1;font-weight:700;text-transform:uppercase;font-size:12.5px">${nm}</span>
+      <span class="tag" style="color:${s[2]};background:rgba(255,255,255,.04)">${s[1]}</span></div>`; }).join('');
+  const ev = [['21:36', 'загружено ливрей: 31 из 34'], ['21:35', 'новая сессия · пилотов: 34'], ['21:35', 'своя ливрея записана: Next Gen'], ['19:02', 'папка paint: C:\\Users\\ssper\\OneDrive\\Documents\\iRacing\\paint']];
+  return `<div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start">
+    <section class="p">${head('установка активирована', 'Ливреи Trading Paints', [['статус', 'работает']])}<div class="pb">
+      <div class="row" style="gap:16px">${ring(31 / 34, 31)}<div><div class="cap">ливрей в сессии</div><div class="dimt" style="margin-top:4px">из 34 пилотов · 3 нет на Trading Paints</div></div></div>
+      <div class="row">${onoff()}<span class="sp"></span><button class="btn">Загрузить заново</button><button class="btn">Открыть папку paint</button></div></div></section>
+    <section class="p">${head('', 'Настройки')}<div class="pb"><div class="kv"><span class="lab">Папка paint</span><input class="inp mono" value="C:\\Users\\ssper\\OneDrive\\Documents\\iRacing\\paint">
+      <span></span><div class="row"><button class="btn pri">Сохранить путь</button><button class="btn">Выбрать…</button></div><span class="lab">Сервер</span><span class="dimt mono">https://testedtest.ru/rutp</span></div>
+      <div class="note">Пилоты сессии → сервер RUTP → файлы в папку paint. Чужие ливреи после сессии убираются, своя пишется вне сессии и остаётся.</div></div></section>
+    <section class="p">${head('', 'Пилоты', [['в сессии', '34']])}<div class="rows"><div class="r hd"><span style="width:40px">№</span><span style="flex:1">пилот</span><span>ливрея</span></div>${rows}</div></section>
+    <section class="p">${head('', 'События')}<div class="rows">${ev.map(([t, e]) => `<div class="r"><span class="tm" style="width:44px">${t}</span><span class="ev">${e}</span></div>`).join('')}</div></section></div>`;
+}
+
+/* ---------- Телеметрия ---------- */
+function telemetry(){
+  const tyre = (n, w, tc) => `<div class="tyre"><span class="cap">${n}</span><b>${tc}°</b><div class="tw">${w.map(x => `<i style="background:${x > 90 ? 'var(--up)' : x > 80 ? 'var(--yel)' : 'var(--dn)'};opacity:.85"></i>`).join('')}</div><span class="hint">${w.join(' · ')}%</span></div>`;
+  const laps = [[15, 7, '31.868', '2.03', 'чистый'], [14, 7, '31.660', '2.10', 'чистый'], [13, 7, '31.681', '2.18', 'жёлтый'], [12, 7, '32.255', '2.22', 'чистый'], [11, 7, '32.856', '2.26', 'пит'], [10, 7, '31.614', '2.12', 'чистый'], [9, 7, '31.533', '2.17', 'лучший']];
+  return `<div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);align-items:start">
+    <section class="p">${head('REC', 'Телеметрия своей машины', [['статус', 'пишет']])}<div class="pb">
+      <div class="row" style="gap:16px">${ring(.8, 128)}<div><div class="cap">кругов в сессии</div><div class="dimt" style="margin-top:4px">Las Vegas · Next Gen Chevrolet</div></div></div>
+      <div class="row">${onoff()}<span class="sp"></span><button class="btn">Открыть папку</button></div></div></section>
+    <section class="p">${head('', 'Настройки')}<div class="pb"><div class="kv">
+      <span class="lab">Запись .ibt</span><div class="row">${onoff()}<span class="dimt">включать при выезде</span></div>
+      <span class="lab">Сессия</span><span class="dimt mono">89777282 · Race</span><span class="lab">Отправка</span><span class="dimt">на irchamps.gg · всё отправлено</span>
+      <span class="lab">Из .ibt</span><div class="row"><span class="dimt">после сессии — сам</span><span class="sp"></span><button class="btn s">Пересчитать</button></div>
+      <span class="lab">Кадры</span><span class="dimt mono">412 880 / 412 880</span><span class="lab">Радар: сбор</span>${onoff(0)}</div></div></section>
+    <section class="p">${head('после пит-стопа', 'Резина и нагрузка')}<div class="pb"><div class="grid" style="grid-template-columns:1fr 1fr;gap:8px">
+      ${tyre('LF', [94, 92, 91], 86)}${tyre('RF', [88, 84, 79], 97)}${tyre('LR', [96, 95, 95], 79)}${tyre('RR', [90, 87, 84], 91)}</div>
+      <div class="dimt mono" style="font-size:11.5px">трек 34° · бок. ср. 2.9g · торм. макс 1.4g · разгон макс 0.6g</div></div></section>
+    <section class="p" style="grid-column:1/-1">${head('2026-10-31 · Las Vegas · Next Gen', 'Последние круги')}<div class="rows">
+      <div class="r hd"><span style="width:50px">круг</span><span style="width:60px">сетап</span><span style="width:90px">время</span><span style="width:80px">топл.</span><span>отметки</span></div>
+      ${laps.map(([l, s, t, f, m]) => `<div class="r"><span class="tm" style="width:50px;color:var(--fg)">${l}</span><span class="tm" style="width:60px">${s}</span><span class="tm" style="width:90px;color:${m === 'лучший' ? '#C38BFF' : 'var(--fg)'}">${t}</span><span class="tm" style="width:80px">${f} л</span>
+        <span class="tag" style="color:${m === 'чистый' ? 'var(--up)' : m === 'лучший' ? '#C38BFF' : m === 'жёлтый' ? 'var(--yel)' : 'var(--acc)'};background:rgba(255,255,255,.04)">${m}</span></div>`).join('')}</div></section></div>`;
+}
+
+/* ---------- сборка ---------- */
+const PAGES = {overview, racecontrol, broadcast, pilot, rutp, telemetry};
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `<div class="top"><img class="logo" src="${LOGO}">${TABS.map(([id, t], i) => `<span class="tab ${id === sc ? 'on' : ''}" data-go="${id}">${t}</span>`).join('')}
+    <span class="sp"></span><span class="acct"><i>S</i>Sergi Sobetov</span></div>
+    <div class="body">${PAGES[sc]()}</div>
+    <div class="status"><span class="ok">■ Аккаунт irchamps.gg</span><span>■ Этап 7 привязан</span><span class="warn">■ Решений ждут отправки: 2</span><span>■ Эфир: 4</span><span class="ok">■ iRacing · Live</span><span class="sp"></span><span>iRC v2.54.4</span></div>`;
+}
+document.getElementById('app').addEventListener('click', e => {
+  const g = e.target.closest('[data-go]'); if(g){ sc = g.dataset.go; render(); return; }
+  const b = e.target.closest('[data-bc]'); if(b){ bcMode = b.dataset.bc; render(); return; }
+  const v = e.target.closest('[data-bv]'); if(v){ bcView = v.dataset.bv; bcMode = 'prep'; render(); return; }
+  const o = e.target.closest('[data-ov]'); if(o){ ovSel = +o.dataset.ov; render(); return; }
+  const s = e.target.closest('.seg button'); if(s){ const w = s.parentNode.querySelector('.on')?.classList.contains('w');
+    s.parentNode.querySelectorAll('button').forEach(x => x.classList.remove('on', 'w')); s.classList.add('on'); if(w) s.classList.add('w'); return; }
+  const c = e.target.closest('.colbtn'); if(c){ c.classList.toggle('on'); return; }
+  const ch = e.target.closest('.chip'); if(ch){ ch.parentNode.querySelectorAll('.chip').forEach(x => x.classList.add('off')); ch.classList.remove('off'); }
+});
+document.addEventListener('keydown', e => { const n = +e.key; if(n >= 1 && n <= 5 && e.target.tagName !== 'INPUT'){ sc = TABS[n - 1][0]; render(); } });
+render();
+</script></body></html>

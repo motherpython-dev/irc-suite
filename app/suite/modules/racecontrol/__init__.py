@@ -7,8 +7,16 @@
 from __future__ import annotations
 
 from ...core.modules import Context
+import time
+
 from .detector import IncidentDetector
 from .flags import FlagControl
+from .live import LiveLink
+
+OUTCOMES = ("racing", "penalty", "review")
+# наказание в гонке: что выдаётся и как называется в интерфейсе
+PENALTIES = {"drive_through": "проезд по пит-лейну", "time_penalty": "штраф по времени",
+             "dq": "дисквалификация", "eol": "в конец колонны"}
 
 
 class RaceControlModule:
@@ -22,6 +30,7 @@ class RaceControlModule:
         self.overlay = None
         self.pace_laps = 2
         self._overlay_thread = None
+        self.live: LiveLink | None = None
 
     # ---------- жизненный цикл ----------
 
@@ -40,12 +49,17 @@ class RaceControlModule:
             merge_window=float(cfg.get("merge_window", 12.0)))
         self.detector.on_incident = self._incident_pushed
         self.detector.start()
+        self.live = LiveLink(self)
+        self.live.start()
 
         # Окно НЕ создаём: при старте на экране только главное окно,
         # оверлей включается из панели или из трея.
         ctx.log.info("рейс-контрол запущен (оверлей по требованию)")
 
     def stop(self) -> None:
+        if self.live:
+            self.live.stop()
+            self.live = None
         if self.detector:
             self.detector.stop()
             self.detector = None
@@ -63,6 +77,7 @@ class RaceControlModule:
             "incidents": len(self.incidents()) if self.ctx else 0,
             "pace_laps": self.pace_laps,
             "missed_in_replay": self.detector.missed_in_replay if self.detector else 0,
+            "live": self.live.status() if self.live else None,
         }
 
     def build_overlay(self, host_root=None):
@@ -188,6 +203,74 @@ class RaceControlModule:
         self.ctx.storage.log_event("camera_changed", {"camera": name or "(текущая)"})
         return {"ok": True, "current": name}
 
+    def _driver_by_number(self, car: str):
+        for d in self.ctx.sim.snapshot().drivers:
+            if str(d.car_number) == str(car):
+                return d
+        return None
+
+    def decide(self, incident_id: int, outcome: str, penalty: str = "",
+               seconds: int = 0, car: str = "", note: str = "") -> dict:
+        """Решение маршала по карточке инцидента.
+
+        * racing  — гоночный инцидент, никто не наказан;
+        * penalty — наказание выдаётся сразу в гонке командой в чат сима;
+        * review  — изучить после гонки: на сайте появится карточка для маршала.
+
+        Решение пишется в базу и уходит на сайт в журнал этапа. Выданное
+        наказание в симе не отменить — поменять его на другой исход нельзя.
+        """
+        st = self.ctx.storage
+        inc = st.get_incident(incident_id)
+        if not inc:
+            return {"ok": False, "error": "not_found"}
+        if outcome not in OUTCOMES:
+            return {"ok": False, "error": "bad_outcome", "message": "Неизвестный исход"}
+        if inc.decision == "penalty":
+            return {"ok": False, "error": "already_penalized",
+                    "message": "Наказание уже выдано в гонке — отменить его можно только в симе"}
+
+        target = str(car or inc.car_number).strip().lstrip("#")
+        drv = self._driver_by_number(target)
+        detail = {"note": str(note or "").strip()[:2000], "decided_at": time.time(),
+                  "car": target,
+                  "driver_name": drv.name if drv else inc.driver_name,
+                  "customer_id": (drv.user_id if drv else 0)
+                  or (self.ctx.sim.driver_user_id(inc.car_idx) if target == inc.car_number else 0)}
+
+        if outcome == "penalty":
+            if penalty not in PENALTIES:
+                return {"ok": False, "error": "bad_penalty", "message": "Выберите наказание"}
+            if (err := self.ctx.app.sim_ready()):
+                return err
+            f = self.flags
+            secs = max(1, int(seconds or self.cfg.get("penalty_seconds", 5)))
+            ok = {"drive_through": lambda: f.drive_through(target),
+                  "time_penalty": lambda: f.time_penalty(target, secs),
+                  "dq": lambda: f.disqualify(target),
+                  "eol": lambda: f.end_of_line(target)}[penalty]()
+            if not ok:
+                return {"ok": False, "error": "chat_failed",
+                        "message": f.last_error or "Команда не отправлена"}
+            detail["penalty"] = penalty
+            if penalty == "time_penalty":
+                detail["seconds"] = secs
+
+        st.set_decision(incident_id, outcome, detail)
+        st.log_event("decision", {"incident": incident_id, "outcome": outcome, **detail})
+        self._push_incidents()
+        if self.live:
+            self.live.kick()
+        return {"ok": True, "decision": outcome}
+
+    def stage_status(self) -> dict:
+        return {"ok": True, **(self.live.status() if self.live else {})}
+
+    def choose_stage(self, stage_plan_id: int) -> dict:
+        if not self.live:
+            return {"ok": False, "error": "not_started"}
+        return self.live.bind(int(stage_plan_id or 0))
+
     def set_reviewed(self, incident_id: int, reviewed: bool, note: str = "") -> dict:
         self.ctx.storage.set_reviewed(incident_id, reviewed, note)
         self._push_incidents()
@@ -211,6 +294,8 @@ class RaceControlModule:
             ok = f.pace_laps(self.pace_laps)
         elif action == "clear":
             ok = f.clear(car)
+        elif action == "clear_all":
+            ok = f.clear_all()
         elif action == "drive_through":
             ok = f.drive_through(car)
         elif action == "time_penalty":
@@ -276,6 +361,14 @@ class RaceControlModule:
                 lambda r: (lambda b: self.command(str(b.get("name", "")), b))(body(r)),
             "POST /api/racecontrol/flag":
                 lambda r: (lambda b: self.flag_action(str(b.get("action", "")), b))(body(r)),
+            "POST /api/racecontrol/decide":
+                lambda r: (lambda b: self.decide(
+                    int(b.get("id", 0)), str(b.get("outcome", "")),
+                    str(b.get("penalty", "")), int(b.get("seconds") or 0),
+                    str(b.get("car", "")), str(b.get("note", ""))))(body(r)),
+            "GET /api/racecontrol/stage": lambda r: self.stage_status(),
+            "POST /api/racecontrol/stage":
+                lambda r: self.choose_stage(int(body(r).get("stage_plan_id") or 0)),
             "POST /api/racecontrol/reviewed":
                 lambda r: (lambda b: self.set_reviewed(
                     int(b.get("id", 0)), bool(b.get("reviewed")),

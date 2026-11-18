@@ -1,0 +1,296 @@
+/* Набор элементов интерфейса iRC · язык «Тайминг».
+
+   Правила, на которых всё держится:
+     * сетка 8 px: отступы 4 / 8 / 12 / 16 / 24;
+     * высота элементов — только 32 (малая), 40 (обычная), 56 (крупная);
+     * шапка панели и строка таблицы — 36, заголовок таблицы — 28;
+     * скругление небольшое: 4 px у клавиш и полей, 6 px у панелей; рамка — 1 px;
+     * два шрифта: Exo 2 — интерфейс, Roboto Mono — цифры. Оба внутри
+       программы (web/ui/fonts), без интернета вид не разваливается.
+
+   Образец — прототип «Прототип iRC». Меняешь элемент здесь — меняется во
+   всех окнах сразу.
+*/
+
+@font-face{font-family:'Exo 2';src:url('/ui/fonts/Exo2.ttf') format('truetype');
+           font-weight:100 900;font-style:normal;font-display:block}
+@font-face{font-family:'Roboto Mono';src:url('/ui/fonts/RobotoMono.ttf') format('truetype');
+           font-weight:100 700;font-style:normal;font-display:block}
+
+:root{
+  /* поверхности — как на irchamps.gg (тёмная тема, static/css/racing.css):
+     фон страницы, меню и карточки, наведение, рамки */
+  --bg:#0B0E14; --panel:#141923; --raise:#1B2230; --hover:#232C3D;
+  --line:#28303F; --line2:#3A4456;
+  /* текст */
+  --fg:#F2F2F4; --dim:#8E8E98; --faint:#5C5C66;
+  /* смысл */
+  --acc:#FF5A1F; --on:#00C566; --air:#FF2D2D; --warn:#FFB800; --best:#B46CFF;
+  --off-track:#4FB6E8; --hit-text:#FF6B6B;
+  --gt3:#FF5A1F; --gt4:#3B82F6;
+  /* шрифты */
+  --f-ui:'Exo 2','Segoe UI',system-ui,sans-serif;
+  --f-num:'Roboto Mono',Consolas,monospace;
+  /* размеры */
+  --h-s:32px; --h-m:40px; --h-l:56px; --h-row:36px;
+  --r-s:4px; --r-m:6px;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font:400 13px/1.4 var(--f-ui);-webkit-font-smoothing:antialiased}
+:where(button){font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:where(input,select,textarea){font:inherit;color:inherit}
+:focus-visible{outline:1px solid var(--fg);outline-offset:-1px}
+::selection{background:var(--acc);color:#000}
+
+/* ---------- текст ---------- */
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.dim{color:var(--dim)} .faint{color:var(--faint)}
+.cap{font:700 11px var(--f-ui);letter-spacing:.14em;text-transform:uppercase}
+.lbl{font:700 10.5px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.tag{font:700 10.5px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.big{font:500 48px/1 var(--f-num);letter-spacing:-.02em}
+.nm{font:600 13px var(--f-ui);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar{text-align:right}
+.row{display:flex;align-items:center;gap:8px}
+.grow{flex:1;min-width:0}
+
+/* ---------- каркас окна: шапка с вкладками, содержимое, строка состояния ---------- */
+.shell{height:100%;display:grid;grid-template-rows:48px 1fr 28px;grid-template-columns:minmax(0,1fr);overflow:hidden}
+.top{display:flex;align-items:stretch;border-bottom:1px solid var(--line);min-width:0;overflow:hidden;background:var(--panel)}
+.brand{flex:none;display:flex;align-items:center;padding:0 12px;margin:7px 4px 7px 6px;border-radius:var(--r-s);text-decoration:none}
+.brand img{height:28px;width:auto;display:block}
+.brand:hover{background:var(--raise)}
+.tab{display:flex;align-items:center;gap:8px;padding:0 14px;margin:7px 2px;border-radius:var(--r-s);color:var(--dim);
+     font:700 12px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;position:relative;white-space:nowrap}
+.tab:hover{color:var(--fg);background:var(--raise)}
+.tab[aria-current="page"]{color:var(--fg);background:var(--raise)}
+.tab[aria-current="page"]::after{content:"";position:absolute;left:8px;right:8px;bottom:-8px;height:2px;border-radius:2px 2px 0 0;background:var(--acc)}
+.tab kbd{font:500 10px var(--f-num);color:var(--faint)}
+.tab .soon{font:700 9.5px var(--f-ui);letter-spacing:.12em;color:var(--faint)}
+.sess{display:flex;align-items:center;gap:16px;padding:0 16px;font:500 12px var(--f-num);white-space:nowrap;min-width:0;overflow:hidden}
+.sess .trk{min-width:0;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.live{color:var(--air);font:700 11px var(--f-ui);letter-spacing:.14em}
+.live::before{content:"● "}
+.live.replay{color:var(--warn)} .live.off{color:var(--faint)}
+.acct{display:flex;align-items:center;gap:10px;padding:0 12px;margin:7px 2px;border-radius:var(--r-s);
+      font:700 12px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.acct:hover{background:var(--raise)}
+.acct .ini{border-radius:var(--r-s);width:24px;height:24px;display:grid;place-items:center;background:var(--fg);color:#000;font:700 12px var(--f-ui)}
+.acct.out .ini{background:var(--line2);color:var(--dim)}
+.content{min-height:0;overflow:hidden;padding:8px;display:grid;gap:8px}
+.status{display:flex;align-items:center;gap:24px;padding:0 16px;border-top:1px solid var(--line);background:var(--panel);overflow:hidden;white-space:nowrap;
+        font:700 10.5px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.status .s::before{content:"■ "}
+.status .ok{color:var(--on)} .status .wa{color:var(--warn)} .status .er{color:var(--air)}
+.status .s.ell{min-width:120px;flex:0 1 auto}
+
+/* окно программы без системной рамки: шапка — заголовок окна, справа кнопки */
+.native .top{app-region:drag}
+.native .top a,.native .top button,.native .top input,.native .top select,.native .top .tab{app-region:no-drag}
+/* за что тянуть окно: логотип и свободное место — оно есть всегда */
+.native .top .brand{app-region:drag}
+.native .top .grow{min-width:56px}
+/* в узком окне первой сжимается сессия: название трассы уходит в «…», статус и время
+   остаются. Вкладки сжимаются, только когда сессию уже спрятали (<1000px).
+   Кнопки окна и аккаунт — никогда */
+.top .tab{flex:none}
+.top .sess{flex:0 1 auto}
+.top .sess > :not(.trk){flex:none}
+.top .acct,.top .bgr-hbtn,.wctl{flex:none}
+@media (max-width:1180px){ .top .tab{padding:0 12px} .top .tab kbd{display:none} }
+@media (max-width:1000px){ .top .sess{display:none} .top .tab{flex:0 1 auto;min-width:0;overflow:hidden;padding:0 9px;letter-spacing:.05em;font-size:11px} .top .brand{padding:0 12px} .native .top .grow{min-width:40px} }
+.wctl{display:flex;align-self:stretch;margin:7px 6px 7px 2px;gap:2px;app-region:no-drag}
+.wctl button{width:40px;display:grid;place-items:center;color:var(--dim);border-radius:var(--r-s)}
+.wctl button:hover{background:var(--raise);color:var(--fg)}
+.wctl button.x:hover{background:var(--air);color:#fff}
+
+/* ---------- панели ---------- */
+.p{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden;display:flex;flex-direction:column;min-height:0;min-width:0}
+.ph{height:var(--h-row);flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);
+    font:800 11px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
+.ph::before{content:"";width:3px;height:12px;background:var(--acc);flex:none}
+.ph .r{margin-left:auto;font:500 11px var(--f-num);letter-spacing:0;color:var(--dim);text-transform:none}
+.pb{padding:12px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.scroll{overflow-y:auto;min-height:0}
+.scroll::-webkit-scrollbar{width:8px} .scroll::-webkit-scrollbar-thumb{background:var(--line2)}
+
+/* ---------- клавиши ---------- */
+.k{border-radius:var(--r-s);height:var(--h-m);display:inline-flex;align-items:center;gap:10px;padding:0 14px;background:var(--raise);border:1px solid var(--line2);
+   font:700 12px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;color:var(--fg);transition:background .08s}
+.k:hover{background:var(--hover)}
+.k:active{transform:translateY(1px)}
+.k kbd{font:500 10px var(--f-num);color:var(--faint);letter-spacing:0;border:1px solid var(--line2);padding:0 4px;line-height:15px;border-radius:3px}
+.k.s{height:var(--h-s);padding:0 12px;font-size:11px}
+.k.l{height:var(--h-l);padding:0 16px;font-size:13px}
+.k.full{width:100%;justify-content:space-between}
+.k.center{justify-content:center}
+.k.pri{background:var(--acc);border-color:var(--acc);color:#000}
+.k.pri kbd{color:#5A1D05;border-color:#C2410C}
+.k.air{background:var(--air);border-color:var(--air);color:#fff}
+.k.air kbd{color:#FFD0D0;border-color:#FF7A7A}
+.k.go{border-color:var(--on);color:var(--on)}
+.k.warn{border-color:var(--warn);color:var(--warn)}
+.k.hit{border-color:var(--air);color:var(--hit-text)}
+.k.sel{background:var(--fg);border-color:var(--fg);color:#000}
+.k.sel kbd{color:#555;border-color:#999}
+.k.arm{background:var(--air);border-color:var(--air);color:#fff;animation:irc-arm .7s steps(2) infinite}
+@keyframes irc-arm{50%{background:#7A0C0C}}
+.k:disabled,.k[aria-disabled="true"]{opacity:.35;pointer-events:none}
+/* клавиша в сетке: подсказка в углу, длинная подпись — с многоточием */
+.k.kc{position:relative;min-width:0;overflow:hidden;justify-content:center}
+.k.kc kbd{position:absolute;top:3px;right:3px;border:0;padding:0;line-height:1}
+.k .lb{min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+/* вкл | выкл — вместо переключателя-ползунка */
+.onoff{display:inline-flex;border:1px solid var(--line2);height:var(--h-s);flex:none;border-radius:var(--r-s);overflow:hidden}
+.onoff button{width:56px;font:700 11px var(--f-ui);letter-spacing:.12em;color:var(--faint)}
+.onoff button:hover{background:var(--hover)}
+.onoff button[aria-pressed="true"].y{background:var(--on);color:#000}
+.onoff button[aria-pressed="true"].n{background:var(--line2);color:var(--fg)}
+.onoff button:disabled{pointer-events:none}
+/* выбор одного из нескольких */
+.seg{display:inline-flex;border:1px solid var(--line2);height:var(--h-s);flex:none;border-radius:var(--r-s);overflow:hidden}
+.seg button{padding:0 12px;font:700 11px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);border-right:1px solid var(--line2);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--hover);color:var(--fg)}
+.seg button[aria-pressed="true"]{background:var(--fg);color:#000}
+
+/* ---------- таблицы: колонки задаются grid-template-columns на каждой строке ---------- */
+.tr{display:grid;align-items:center;height:var(--h-row);padding:0 12px 0 15px;border-bottom:1px solid var(--line);position:relative;gap:12px}
+.tr.h{height:28px;font:700 10px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.tr.tall{height:var(--h-l)}
+.tr.click{cursor:pointer} .tr.click:hover{background:var(--raise)}
+.tr.cur{background:var(--hover)}
+.tr .bar{position:absolute;left:0;top:0;bottom:0;width:3px}
+.cn{border-radius:3px;display:inline-grid;place-items:center;width:34px;height:20px;background:#E8E8EC;color:#000;font:700 12px var(--f-num)}
+.cn.gt3{background:var(--gt3)} .cn.gt4{background:var(--gt4)}
+
+/* ---------- поля ---------- */
+.field,.inp{border-radius:var(--r-s);height:var(--h-s);display:flex;align-items:center;padding:0 12px;background:var(--bg);border:1px solid var(--line2);
+            font:500 13px var(--f-num);color:var(--fg);width:100%;min-width:0}
+.inp{outline:0} .inp:focus{border-color:var(--fg)}
+.inp.text,.field.text{font-family:var(--f-ui)}
+.inp::placeholder{color:var(--faint)}
+select.inp{appearance:none;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238E8E98'/%3E%3C/svg%3E") no-repeat right 10px center;padding-right:28px}
+.kv{display:grid;grid-template-columns:136px minmax(0,1fr);align-items:center;gap:8px 12px;min-width:0}
+.kv > *{min-width:0}
+.kv .seg{max-width:100%;overflow:hidden}
+.kv > .onoff,.kv > .seg{justify-self:start}
+.kv > .k-label{font:700 10.5px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+/* ---------- всплывающее: уведомления, меню, затемнение ---------- */
+.toasts{position:fixed;right:16px;bottom:44px;display:flex;flex-direction:column;gap:8px;z-index:40;pointer-events:none}
+.toasts div{border-radius:var(--r-m);background:var(--raise);border:1px solid var(--line2);border-left:3px solid var(--acc);padding:10px 14px;
+            font:600 12px var(--f-ui);letter-spacing:.04em;min-width:240px;max-width:420px}
+.toasts div.ok{border-left-color:var(--on)} .toasts div.er{border-left-color:var(--air)} .toasts div.wa{border-left-color:var(--warn)}
+.menu{border-radius:var(--r-m);overflow:hidden;position:fixed;right:8px;top:52px;width:280px;background:var(--raise);border:1px solid var(--line2);z-index:30}
+.menu .mi{padding:12px;border-bottom:1px solid var(--line)}
+.menu .mi:last-child{border-bottom:0}
+.gate{position:fixed;left:0;right:0;top:48px;bottom:28px;background:rgba(0,0,0,.82);z-index:20;display:grid;place-items:center}
+.gate .card{border-radius:var(--r-m);overflow:hidden;width:440px;background:var(--panel);border:1px solid var(--line2)}
+
+@media (prefers-reduced-motion:reduce){.k.arm{animation:none}}
+
+/* =====================================================================
+   Стиль F (2026-11-03, мокап docs/mockups/irc-style-f.html): графит с тёплым
+   верхом панелей, оранжевая кромка у заголовка, меню — узкий Bahnschrift
+   капсом со светящейся чертой, клавиши без рамки — «световая кромка»:
+   состояние — цветная полоса снизу (зелёная — включено, оранжевая — выбор,
+   наведение и главная клавиша).
+   ===================================================================== */
+:root{
+  --bg:#0B0C10; --panel:#13151A; --raise:#1A1D24; --hover:#1E222A;
+  --line:#22252D; --line2:#2E3440;
+  --r-s:5px; --r-m:7px;
+  --edge:#2E3440;                       /* полоса снизу у клавиши в покое */
+  --f-menu:'Bahnschrift','Segoe UI',var(--f-ui);
+}
+/* шапка и вкладки */
+.top{background:linear-gradient(180deg,#14151B,#0F1015);border-bottom-color:#1F232B}
+.brand:hover{background:none}
+.tab{font:700 14.5px var(--f-menu);font-stretch:75%;letter-spacing:.08em;background:none}
+.tab:hover{background:none;color:#C3C9D3}
+.tab[aria-current="page"]{background:none;color:#fff}
+.tab[aria-current="page"]::after{left:12px;right:12px;height:3px;border-radius:3px 3px 0 0;
+  box-shadow:0 0 12px var(--acc),0 0 3px var(--acc)}
+.tab kbd{display:none}                 /* клавиши 1–5 работают и без подсказки */
+.acct:hover{background:none}
+.status{background:#0F1015;border-top-color:#1F232B}
+/* панели: тёплый верх, графит, кромка у заголовка */
+.p{background:linear-gradient(180deg,#19161B 0%,#13151A 45%,#121419 100%);border-color:rgba(255,255,255,.07);
+   box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.ph{position:relative;border-bottom-color:rgba(255,255,255,.06)}
+.ph::before{position:absolute;left:0;top:9px;bottom:9px;height:auto;border-radius:0 3px 3px 0}
+/* клавиши — «световая кромка» */
+.k{background:var(--raise);border:0;border-radius:5px 5px 2px 2px;box-shadow:inset 0 -2px 0 var(--edge);
+   transition:box-shadow .15s,background .15s}
+.k:hover{background:var(--hover);box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.6)}
+.k kbd{border:0;padding:0;color:var(--dim)}
+.k.pri{background:linear-gradient(180deg,#2A1D19,#22171A);color:#fff;box-shadow:inset 0 -3px 0 var(--acc),0 8px 16px -6px rgba(255,90,31,.75)}
+.k.pri:hover{background:linear-gradient(180deg,#33211B,#28191B);box-shadow:inset 0 -3px 0 var(--acc),0 10px 20px -6px rgba(255,90,31,.95)}
+.k.pri kbd{color:var(--acc)}
+.k.air{background:linear-gradient(180deg,#2A1717,#211517);color:#fff;box-shadow:inset 0 -2px 0 var(--air),0 6px 14px -6px rgba(255,45,45,.8)}
+.k.air kbd{color:#FF9A9A}
+.k.sel{background:var(--raise);color:#fff;box-shadow:inset 0 -2px 0 var(--on),0 6px 12px -6px rgba(0,197,102,.6)}
+.k.sel kbd{color:var(--on)}
+.k.go{color:var(--fg);box-shadow:inset 0 -2px 0 var(--on)} .k.go kbd{color:var(--on)}
+.k.warn{color:var(--fg);box-shadow:inset 0 -2px 0 var(--warn)} .k.warn kbd{color:var(--warn)}
+.k.hit{color:var(--hit-text);box-shadow:inset 0 -2px 0 var(--air)}
+.k.arm{box-shadow:inset 0 -2px 0 #fff}
+/* вкл | выкл и выбор одного из нескольких */
+.onoff,.seg{border:0;background:var(--raise);border-radius:5px 5px 2px 2px}
+.onoff button,.seg button{box-shadow:inset 0 -2px 0 var(--edge);border-right:0}
+.onoff button:hover,.seg button:hover{background:none;color:#C3C9D3}
+.onoff button[aria-pressed="true"].y{background:none;color:#fff;box-shadow:inset 0 -2px 0 var(--on),0 6px 12px -6px rgba(0,197,102,.7)}
+.onoff button[aria-pressed="true"].n{background:none;color:var(--fg);box-shadow:inset 0 -2px 0 #59606B}
+.seg button[aria-pressed="true"]{background:none;color:#fff;box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.7)}
+/* поля */
+.field,.inp{background:#101217;border:0;border-radius:5px 5px 2px 2px;box-shadow:inset 0 -2px 0 #2A2F39}
+.inp:focus{box-shadow:inset 0 -2px 0 var(--acc)}
+select.inp{background-color:#101217}
+/* таблицы, всплывающее */
+.tr.click:hover{background:rgba(255,255,255,.03)}
+.tr.cur{background:linear-gradient(90deg,rgba(255,90,31,.20),rgba(255,90,31,.04))}
+.toasts div,.menu,.gate .card{background:#16181E;border-color:#2A2F39}
+/* полукруг-шкала на карточках (Обзор) */
+.gauge{flex:none;display:block}
+.gauge .t{fill:none;stroke:#232831;stroke-width:7;stroke-linecap:round}
+.gauge .v{fill:none;stroke:var(--acc);stroke-width:7;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(255,90,31,.6))}
+.gauge text{font:700 20px var(--f-num);fill:#fff}
+.gauge.off .v{stroke:var(--line2);filter:none} .gauge.off text{fill:var(--faint)}
+/* логотип — ровно фирменным оранжевым, как светящаяся черта вкладки: картинка служит
+   трафаретом (mask), заливка — --acc, свечение — на обёртке (mask его не обрежет) */
+.brand img,.back img{background:var(--acc);object-position:-9999px 0;
+  -webkit-mask:url('/assets/logo.png') center/contain no-repeat;mask:url('/assets/logo.png') center/contain no-repeat}
+.brand,.back{filter:drop-shadow(0 0 4px rgba(255,90,31,.35)) drop-shadow(0 0 1px rgba(255,90,31,.45))}
+
+/* шапка панели в две строки (irc.ph): мелкая оранжевая строка, заголовок, справа значения */
+.ph.h2{height:auto;min-height:var(--h-row);align-items:flex-end;padding:9px 14px 7px;gap:12px}
+.ph.h2::before{top:9px;bottom:7px}
+.ph.h2 .t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:0 1 auto}
+.ph.h2 .ki{font:800 9px var(--f-ui);letter-spacing:.2em;color:var(--acc);overflow:hidden;text-overflow:ellipsis}
+.ph.h2 .h{font:800 13.5px var(--f-ui);letter-spacing:.08em;overflow:hidden;text-overflow:ellipsis}
+.ph.h2 .stats{margin-left:auto;display:flex;gap:16px;align-items:flex-end;flex:none}
+.ph.h2 .stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.ph.h2 .stat span{font:800 9px var(--f-ui);letter-spacing:.2em;color:var(--dim)}
+.ph.h2 .stat b{font:700 13px var(--f-num);letter-spacing:0;color:var(--fg);text-transform:none}
+/* панель по высоте содержимого, но не выше своей ячейки — список внутри прокручивается */
+.p.fit{align-self:start;max-height:100%}
+/* плашка номера в цветах ливреи (irc.plate) */
+.plate{width:34px;height:20px;border-radius:3px;display:inline-grid;place-items:center;flex:none;vertical-align:middle;
+       font:italic 900 12.5px var(--f-ui);color:#fff;text-shadow:0 1px 1.5px rgba(0,0,0,.8)}
+.plate > span{transform:skewX(-6deg)}
+.plates{display:flex;gap:4px;min-width:0;overflow:hidden}
+/* метка статуса (irc.pill) */
+.tag.pill{display:inline-block;padding:3px 7px;border-radius:4px;background:rgba(255,255,255,.05);font-size:9.5px;letter-spacing:.14em;
+          max-width:100%;overflow:hidden;text-overflow:ellipsis}
+/* круг-счётчик (RUTP) */
+.ring-row{display:flex;align-items:center;gap:16px;min-width:0}
+/* клавиша в сетке (исход, наказание): длинная подпись переносится на вторую строку, а не обрезается */
+.k.kc .lb{white-space:normal;line-height:1.15;text-align:center;overflow-wrap:anywhere}
+.k.kc{padding:0 10px}
+/* пульт «Эфир»: панели в колонках (flex) — во всю ширину колонки, высоту задаёт раскладка пульта */
+.dk .p.fit{align-self:stretch;max-height:none}

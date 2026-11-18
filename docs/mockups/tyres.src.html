@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Оверлей «Резина»</title>
+<style>
+@font-face{font-family:'Exo 2';src:url(data:font/ttf;base64,__EXO__) format('truetype');font-weight:100 900}
+@font-face{font-family:'Roboto Mono';src:url(data:font/ttf;base64,__MONO__) format('truetype');font-weight:100 700}
+:root{--acc:#FF5A1F;--fg:#EAEEF5;--dim:#8E8E98;--mid:#C3C9D3;--up:#2FD16A;--best:#C38BFF;--line:#2C323C}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0c10;color:var(--fg);font:14px 'Exo 2',system-ui,sans-serif;padding:22px 16px 40px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;margin:0 0 4px;letter-spacing:.04em}
+p.sub{color:var(--dim);font-size:13px;margin:0 0 16px;line-height:1.5}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.scene{flex:1 1 640px;min-height:330px;border-radius:8px;padding:26px;background:linear-gradient(160deg,#3a4a5c,#1d232c 55%,#2b3038);display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+.cap{font:800 10px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:#cfd4dc}
+/* окно оверлея — как Standings */
+.ov{background:linear-gradient(180deg,rgba(30,22,24,.95),rgba(16,20,28,.93));border:1px solid rgba(255,255,255,.08);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.45);position:relative;overflow:hidden}
+.ov::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--acc)}
+.hd{display:flex;align-items:flex-end;gap:14px;padding:8px 14px 6px;border-bottom:1px solid var(--line)}
+.hd .t{display:flex;flex-direction:column}
+.hd .k{font:800 9px 'Exo 2';letter-spacing:.2em;color:var(--acc);text-transform:uppercase}
+.hd .h{font:800 13.5px 'Exo 2';letter-spacing:.08em;text-transform:uppercase}
+.hd .r{margin-left:auto;display:flex;gap:14px}
+.st{display:flex;flex-direction:column;align-items:flex-end}
+.st span{font:800 8.5px 'Exo 2';letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.st b{font:700 13px 'Roboto Mono'}
+table{border-collapse:collapse;table-layout:fixed}
+col.lab{width:62px} col.s{width:118px}
+th,td{padding:0 12px;height:26px;white-space:nowrap}
+th{font:800 8.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim);height:38px;vertical-align:bottom;padding-bottom:6px;text-align:right;position:relative}
+th:first-child,td:first-child{text-align:left;color:var(--dim);font:800 9.5px 'Exo 2';letter-spacing:.16em;padding-left:14px}
+th .nm{display:block;font:700 11.5px 'Exo 2';letter-spacing:.02em;text-transform:none;color:var(--fg);overflow:hidden;text-overflow:ellipsis}
+th .ed{display:block;font:700 9px 'Roboto Mono';letter-spacing:0;color:var(--dim)}
+th.cur .nm{color:#fff}
+th.cur::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:2px;background:var(--acc);box-shadow:0 0 8px var(--acc)}
+th .pin{color:var(--acc);margin-right:4px}
+td{font:500 12.5px 'Roboto Mono';text-align:right;color:var(--mid)}
+td.b{color:var(--up);font-weight:700}
+td.p{color:var(--best);font-weight:700}
+td.dl{font-size:11px;color:var(--dim)}
+tr.lap td{font-size:13.5px;color:var(--fg);border-top:1px solid var(--line)}
+tr.lap td.b{color:var(--up)} tr.lap td.p{color:var(--best)}
+tr.n td{font-size:11px;color:var(--dim);height:22px}
+td.curc{background:rgba(255,90,31,.10)}
+/* панель настроек — стиль F */
+.set{flex:0 1 420px;background:linear-gradient(180deg,#19161b 0%,#13151a 45%,#121419 100%);border:1px solid rgba(255,255,255,.07);border-radius:7px;padding:0 0 14px}
+.set .ph{position:relative;padding:10px 14px 8px;border-bottom:1px solid rgba(255,255,255,.06);font:800 13px 'Exo 2';letter-spacing:.08em;text-transform:uppercase}
+.set .ph::before{content:"";position:absolute;left:0;top:10px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
+.kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px 12px;align-items:center;padding:12px 14px 0}
+.lab{font:800 9.5px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:#71767f}
+.seg{display:inline-flex;background:#1a1d24;border-radius:5px 5px 2px 2px}
+.seg button{font:800 10.5px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;color:var(--dim);background:none;border:0;height:28px;padding:0 11px;box-shadow:inset 0 -2px 0 #2e3440;cursor:pointer}
+.seg button.on{color:#fff;box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.7)}
+.seg button.g{box-shadow:inset 0 -2px 0 var(--up),0 6px 12px -6px rgba(47,209,106,.7)}
+.list{grid-column:1/-1;display:flex;flex-direction:column;gap:4px}
+.it{display:flex;align-items:center;gap:8px;background:#16181e;border-radius:5px;padding:6px 10px;font-size:12.5px}
+.it .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .m{font:500 11px 'Roboto Mono';color:var(--dim)}
+.it button{font:800 9.5px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;border:0;border-radius:4px 4px 2px 2px;height:24px;padding:0 9px;background:#1a1d24;color:var(--dim);box-shadow:inset 0 -2px 0 #2e3440;cursor:pointer}
+.it button.on{color:#fff;box-shadow:inset 0 -2px 0 var(--acc)}
+.note{color:var(--dim);font-size:12px;line-height:1.5;padding:12px 14px 0}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.ctl b{font:800 11px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+</style></head><body><div class="wrap"><style>
+:root{--cold:#5B8CFF;--ok:#2FD16A;--warm:#FFD200;--hot:#FF4D4D}
+.ctl2{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.ctl2 b{font:800 11px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.scn{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;border-radius:8px;padding:26px;background:linear-gradient(160deg,#3a4a5c,#1d232c 55%,#2b3038)}
+.box{display:flex;flex-direction:column;gap:6px}
+.cap2{font:800 10px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:#cfd4dc}
+/* окно — как остальные окна пилота */
+.win{background:linear-gradient(180deg,rgba(30,22,24,.95),rgba(16,20,28,.93));border:1px solid rgba(255,255,255,.08);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.45);position:relative;overflow:hidden}
+.win::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--acc)}
+.wh{display:flex;align-items:flex-end;gap:12px;padding:8px 14px 6px;border-bottom:1px solid var(--line)}
+.wh .k{font:800 9px 'Exo 2';letter-spacing:.2em;color:var(--acc);text-transform:uppercase;display:block}
+.wh .h{font:800 13.5px 'Exo 2';letter-spacing:.08em;text-transform:uppercase}
+.wh .r{margin-left:auto;text-align:right}
+.wh .r span{display:block;font:800 8.5px 'Exo 2';letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
+.wh .r b{font:700 12px 'Roboto Mono'}
+/* A — 2×2, у шины три части (Л · Ц · П) цветом температуры */
+.A .g{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px 12px}
+.tyre{background:rgba(255,255,255,.035);border-radius:5px;padding:6px 7px 7px}
+.tyre .t1{display:flex;justify-content:space-between;align-items:baseline;font:800 9px 'Exo 2';letter-spacing:.14em;color:var(--dim)}
+.tyre .t1 b{font:700 11px 'Roboto Mono';letter-spacing:0;color:var(--fg)}
+.zones{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:5px}
+.zones div{border-radius:3px;text-align:center;padding:5px 0 4px;font:700 13px 'Roboto Mono';color:#0b0c10}
+.zones div i{display:block;font:600 9px 'Roboto Mono';font-style:normal;opacity:.75}
+.tyre .t2{display:flex;justify-content:space-between;margin-top:5px;font:600 10px 'Roboto Mono';color:var(--mid)}
+/* B — машина сверху: шины по углам, между ними — баланс */
+.B .car{position:relative;width:300px;height:250px;margin:10px 14px 12px}
+.B .body{position:absolute;left:96px;right:96px;top:22px;bottom:22px;border-radius:30px 30px 16px 16px;background:linear-gradient(180deg,#232833,#1a1e26);border:1px solid rgba(255,255,255,.06)}
+.B .t{position:absolute;width:78px}
+.B .t .zones div{padding:9px 0 7px;font-size:12px}
+.B .lab{font:800 8.5px 'Exo 2';letter-spacing:.14em;color:var(--dim);display:flex;justify-content:space-between}
+.B .lab b{font:600 9.5px 'Roboto Mono';color:var(--fg);letter-spacing:0}
+.B .bal{position:absolute;left:96px;right:96px;top:50%;transform:translateY(-50%);text-align:center;font:800 8.5px 'Exo 2';letter-spacing:.14em;color:var(--dim)}
+.B .bal b{display:block;font:700 13px 'Roboto Mono';color:var(--fg);letter-spacing:0;margin:2px 0 8px}
+/* C — строка: компактно под Relative */
+.C .row4{display:flex;gap:6px;padding:8px 12px 10px}
+.C .tyre{width:96px}
+.C .zones div{font-size:11.5px;padding:4px 0 3px}
+.foot{padding:0 14px 9px;font:600 10px 'Roboto Mono';color:var(--dim)}
+.foot b{color:var(--acc)}
+.legend{display:flex;gap:10px;align-items:center;font:600 11px 'Roboto Mono';color:var(--dim);margin-top:10px}
+.legend i{display:inline-block;width:46px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--cold),var(--ok),var(--warm),var(--hot))}
+</style>
+<h1>Оверлей «Резина» — варианты</h1>
+<p class="sub">Температура каждой шины в трёх частях, как отдаёт iRacing — левая, центр, правая (со стороны машины), — плюс износ и горячее давление.
+Важно: вживую iRacing обновляет эти цифры только на пит-стопе (замер «щупом», как у механика). Поэтому в окне честно написано, когда был замер —
+и на каком круге. Если проверка покажет, что на трассе цифры тоже меняются, уберём подпись и сделаем окно «живым».</p>
+<div class="ctl2"><b>Состояние</b><span class="seg" id="st"><button class="on" data-s="pit">после пит-стопа</button><button data-s="cold">холодные</button><button data-s="none">ещё не было замера</button></span>
+  <b style="margin-left:10px">Цвет по</b><span class="seg" id="cm"><button class="on" data-c="abs">температуре</button><button data-c="rel">разнице с центром</button></span></div>
+<div class="scn">
+  <div class="box"><span class="cap2">A · 2×2</span><div class="win A" id="A"></div></div>
+  <div class="box"><span class="cap2">B · машина сверху</span><div class="win B" id="B"></div></div>
+  <div class="box"><span class="cap2">C · строкой</span><div class="win C" id="C"></div></div>
+</div>
+<div class="legend"><span>60°</span><i></i><span>110°</span><span style="margin-left:16px">цвет: синий — холодная, зелёный — рабочее окно, жёлтый — горячо, красный — перегрев</span></div>
+<script>
+const DATA = {
+  pit:  {lap: 23, ago: 4, T: {LF: [71, 76, 79], RF: [97, 91, 84], LR: [64, 66, 67], RR: [83, 80, 77]},
+         W: {LF: [94, 95, 96], RF: [88, 90, 92], LR: [97, 97, 98], RR: [92, 93, 94]}, P: {LF: 179, RF: 311, LR: 179, RR: 310}},
+  cold: {lap: 1, ago: 0, T: {LF: [38, 38, 39], RF: [41, 40, 40], LR: [37, 37, 37], RR: [39, 39, 38]},
+         W: {LF: [100, 100, 100], RF: [100, 100, 100], LR: [100, 100, 100], RR: [100, 100, 100]}, P: {LF: 158, RF: 317, LR: 158, RR: 310}},
+};
+let st = 'pit', cm = 'abs';
+function colAbs(t){ // 60..110 °C: синий → зелёный → жёлтый → красный
+  const k = Math.max(0, Math.min(1, (t - 55) / 55));
+  const stops = [[91, 140, 255], [47, 209, 106], [255, 210, 0], [255, 77, 77]];
+  const x = k * 3, i = Math.min(2, Math.floor(x)), f = x - i;
+  const c = stops[i].map((v, j) => Math.round(v + (stops[i + 1][j] - v) * f));
+  return `rgb(${c})`;
+}
+function colRel(t, arr){ const m = arr[1], d = t - m; return d > 6 ? '#FF8A6A' : d < -6 ? '#7FB3FF' : '#C3C9D3'; }
+function zones(k, d){
+  const t = d.T[k];
+  return `<div class="zones">${t.map((x, i) => `<div style="background:${cm === 'abs' ? colAbs(x) : colRel(x, t)}">${x}°<i>${'ЛЦП'[i]}</i></div>`).join('')}</div>`;
+}
+function head(d){
+  return `<div class="wh"><div><span class="k">резина</span><span class="h">${st === 'none' ? 'нет замера' : 'с пит-стопа'}</span></div>
+    <div class="r"><span>${st === 'none' ? 'замер' : 'замер'}</span><b>${st === 'none' ? '—' : 'круг ' + d.lap}</b></div></div>`;
+}
+function foot(d){
+  if(st === 'none') return `<div class="foot">Цифры появятся после первого заезда в бокс — iRacing меряет шины только там.</div>`;
+  return `<div class="foot">обновлено <b>${d.ago ? d.ago + ' кр. назад' : 'сейчас'}</b> · следующий замер — на пит-стопе</div>`;
+}
+const wearAvg = w => (w.reduce((a, b) => a + b, 0) / 3).toFixed(0);
+function render(){
+  const d = DATA[st === 'none' ? 'pit' : st];
+  const empty = st === 'none';
+  const tyre = k => `<div class="tyre"><div class="t1">${k}<b>${empty ? '—' : d.P[k] + ' kPa'}</b></div>
+    ${empty ? '<div class="zones"><div style="background:#2a2f39;color:#8e8e98">—</div><div style="background:#2a2f39;color:#8e8e98">—</div><div style="background:#2a2f39;color:#8e8e98">—</div></div>' : zones(k, d)}
+    <div class="t2"><span>износ</span><span>${empty ? '—' : wearAvg(d.W[k]) + ' %'}</span></div></div>`;
+  document.getElementById('A').innerHTML = head(d) + `<div class="g">${['LF', 'RF', 'LR', 'RR'].map(tyre).join('')}</div>` + foot(d);
+  const pos = {LF: 'left:0;top:6px', RF: 'right:0;top:6px', LR: 'left:0;bottom:6px', RR: 'right:0;bottom:6px'};
+  const fr = empty ? '—' : Math.round((d.T.LF[1] + d.T.RF[1]) / 2) + '°', rr = empty ? '—' : Math.round((d.T.LR[1] + d.T.RR[1]) / 2) + '°';
+  document.getElementById('B').innerHTML = head(d) + `<div class="car"><div class="body"></div>
+    ${['LF', 'RF', 'LR', 'RR'].map(k => `<div class="t" style="${pos[k]}"><div class="lab">${k}<b>${empty ? '' : d.P[k]}</b></div>${empty ? '<div class="zones"><div style="background:#2a2f39">—</div><div style="background:#2a2f39">—</div><div style="background:#2a2f39">—</div></div>' : zones(k, d)}<div class="lab" style="margin-top:3px">износ<b>${empty ? '—' : wearAvg(d.W[k]) + '%'}</b></div></div>`).join('')}
+    <div class="bal">перед<b>${fr}</b>зад<b>${rr}</b></div></div>` + foot(d);
+  document.getElementById('C').innerHTML = head(d) + `<div class="row4">${['LF', 'RF', 'LR', 'RR'].map(tyre).join('')}</div>` + foot(d);
+}
+document.addEventListener('click', e => {
+  const s = e.target.closest('[data-s]'); if(s){ st = s.dataset.s; document.querySelectorAll('#st button').forEach(b => b.classList.toggle('on', b === s)); render(); }
+  const c = e.target.closest('[data-c]'); if(c){ cm = c.dataset.c; document.querySelectorAll('#cm button').forEach(b => b.classList.toggle('on', b === c)); render(); }
+});
+render();
+</script>
+</div></body></html>

@@ -186,6 +186,7 @@ def main() -> int:
         from suite.core.ui import host
         from suite.modules.broadcast import BroadcastModule
         from suite.modules.racecontrol import RaceControlModule
+        from suite.modules.rutp import RutpModule
     except Exception:
         log.error("не удалось загрузить бандл:\n%s", traceback.format_exc())
         return 2
@@ -196,13 +197,17 @@ def main() -> int:
             log.info("перенесено из отдельного рейс-контрола: %s", moved)
 
         app = Application()
-        updater.manifest_url = str(app.cfg.get("update_url") or "")
+        # Проверку и установку обновлений ведёт бандл (suite/core/app.py):
+        # так сам механизм обновления чинится обновлением, без нового exe.
+        app.tray_notify = None            # трей подставит себя ниже
 
         app.register(RaceControlModule())
         app.register(BroadcastModule())
-        # сюда же встанет rutp по мере готовности
+        app.register(RutpModule())
 
         tray = Tray(app)
+        app.tray_notify = tray.notify
+        app.request_quit = tray.quit
         app.on_mode_change = lambda old, new: tray.update_mode(new)
         app.on_incident_notify = lambda inc: tray.notify(
             f"#{inc.car_number} {inc.driver_name} +{inc.inc_delta}x"
@@ -213,10 +218,6 @@ def main() -> int:
         app.start()
         updater.note_ok()
         log.info("панель: %s", app.server.url)
-
-        if app.cfg.get("update_check_on_start") and updater.manifest_url:
-            threading.Thread(
-                target=lambda: _bg_check(updater, tray, log), daemon=True).start()
 
         # Tk обязан жить в главном потоке, поэтому трей уходит в фон
         tray.run_detached()
@@ -232,17 +233,6 @@ def main() -> int:
         return 3
     finally:
         log.info("завершение. лог: %s", log_path)
-
-
-def _bg_check(updater: Updater, tray, log) -> None:
-    try:
-        res = updater.check()
-        if res.get("update"):
-            tray.notify(res["message"] + " — обновить из меню в трее")
-        elif res.get("core_update_required"):
-            tray.notify(res["message"])
-    except Exception:
-        log.exception("фоновая проверка обновлений не удалась")
 
 
 if __name__ == "__main__":

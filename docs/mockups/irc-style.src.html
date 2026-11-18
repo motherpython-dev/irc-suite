@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iRC в стиле оверлеев</title>
+<style>
+@font-face{font-family:'Exo 2';src:url(data:font/ttf;base64,__EXO__) format('truetype');font-weight:100 900}
+@font-face{font-family:'Roboto Mono';src:url(data:font/ttf;base64,__MONO__) format('truetype');font-weight:100 700}
+:root{--acc:#FF5A1F;--fg:#EAEEF5;--dim:#8E8E98;--mid:#C3C9D3;--line:#2C323C;--up:#2FD16A;--dn:#FF4D4D;--yel:#FFD200}
+*{box-sizing:border-box}
+html,body{margin:0;background:#06080c;color:var(--fg);font:14px 'Exo 2',system-ui,sans-serif}
+.picker{position:sticky;top:0;z-index:50;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 16px;background:#0b0e14;border-bottom:1px solid #1c222c}
+.picker b{font:800 11px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-right:4px}
+.picker button{font:800 11px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;color:var(--fg);background:#161b24;border:1px solid #2c3442;border-radius:6px;height:30px;padding:0 12px;cursor:pointer}
+.picker button[aria-pressed=true]{background:var(--fg);color:#000}
+.picker .note{color:var(--dim);font-size:12px;margin-left:auto;max-width:520px}
+.frame{max-width:1280px;margin:16px auto 40px;border-radius:10px;overflow:hidden;border:1px solid #1c222c;min-height:760px;display:flex;flex-direction:column;position:relative}
+
+/* ---------- общие кирпичи ---------- */
+.top{display:flex;align-items:center;gap:6px;height:52px;padding:0 16px}
+.logo{height:22px;margin-right:16px}
+.tab{font:800 12px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:0 12px;height:52px;display:flex;align-items:center;position:relative;cursor:default}
+.tab.on{color:var(--fg)}
+.sp{flex:1}
+.acct{display:flex;align-items:center;gap:8px;font:800 12px 'Exo 2';letter-spacing:.1em;text-transform:uppercase}
+.acct i{width:24px;height:24px;border-radius:5px;background:var(--fg);color:#000;font-style:normal;display:grid;place-items:center;font-size:12px}
+.body{flex:1;padding:14px 16px;display:grid;gap:12px}
+.status{height:28px;display:flex;align-items:center;gap:18px;padding:0 16px;font:800 10px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.status .ok{color:var(--up)} .status .warn{color:#F59E0B}
+.p{position:relative;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.ph{display:flex;align-items:flex-end;gap:10px;padding:10px 14px 8px}
+.ph .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ph .k{font:800 9px 'Exo 2';letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
+.ph .h{font:800 13.5px 'Exo 2';letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.ph .stats{margin-left:auto;display:flex;gap:16px}
+.stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.stat span{font:800 9px 'Exo 2';letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.stat b{font:700 13px 'Roboto Mono';color:var(--fg)}
+.pb{padding:10px 14px 14px;display:flex;flex-direction:column;gap:10px;flex:1;min-width:0}
+.big{font:700 44px/1 'Roboto Mono';letter-spacing:-.02em}
+.cap{font:800 10px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.dimt{color:var(--dim);font-size:12.5px}
+.seg{display:inline-flex;border-radius:5px;overflow:hidden;border:1px solid #39404c}
+.seg button{font:800 10.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim);background:transparent;border:0;height:28px;padding:0 13px}
+.seg button.on{background:var(--up);color:#04140a}
+.seg button.on.w{background:var(--fg);color:#000}
+.btn{font:800 10.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--fg);background:#1b212c;border:1px solid #39404c;border-radius:5px;height:30px;padding:0 13px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn kbd{font:700 9px 'Roboto Mono';color:var(--dim);border:1px solid #39404c;border-radius:3px;padding:1px 4px}
+.row{display:flex;align-items:center;gap:8px;min-width:0}
+.rows{display:flex;flex-direction:column}
+.r{display:flex;align-items:center;gap:10px;height:30px;padding:0 14px;position:relative;font-size:13px;min-width:0}
+.r .tm{font:500 12px 'Roboto Mono';color:var(--dim);width:44px;flex:none}
+.r .md{font:800 10px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;width:110px;flex:none}
+.r .ev{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plate{width:32px;height:18px;border-radius:3px;display:inline-grid;place-items:center;flex:none;font:italic 900 12.5px 'Exo 2';color:#fff;text-shadow:0 1px 1.5px rgba(0,0,0,.8)}
+.plate span{transform:skewX(-10deg)}
+.tag{font:800 9.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;padding:3px 7px;border-radius:4px;white-space:nowrap}
+.chg{font:700 10px 'Roboto Mono'}
+
+/* ---------- A · Табло (Standings) ---------- */
+.A{background:#0a0c11}
+.A .top{background:linear-gradient(180deg,#141922,#0f131a);border-bottom:1px solid #222936}
+.A .tab.on::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2px;background:var(--acc)}
+.A .p{background:linear-gradient(180deg,rgba(30,22,24,.97),rgba(16,20,28,.96));border:1px solid rgba(255,255,255,.08);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.A .p::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--acc)}
+.A .ph{border-bottom:1px solid var(--line)}
+.A .r+.r{border-top:1px solid rgba(255,255,255,.03)}
+.A .r.me{background:rgba(255,90,31,.20)}
+.A .status{background:#0f131a;border-top:1px solid #222936}
+
+/* ---------- B · Эфир (башня трансляции) ---------- */
+.B{background:radial-gradient(1200px 600px at 80% -10%,#1a2340 0%,#0a0d16 60%) #0a0d16}
+.B .top{background:rgba(10,13,22,.7);backdrop-filter:blur(6px);border-bottom:1px solid rgba(255,255,255,.06)}
+.B .tab.on{color:#fff;text-shadow:0 0 12px rgba(255,90,31,.8)}
+.B .tab.on::after{content:"";position:absolute;left:10px;right:10px;bottom:10px;height:3px;border-radius:2px;background:var(--acc);box-shadow:0 0 10px var(--acc)}
+.B .p{background:linear-gradient(160deg,rgba(26,32,48,.82),rgba(12,15,24,.88));border:1px solid rgba(140,160,210,.14);border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 30px rgba(0,0,0,.5)}
+.B .ph .k{color:#7FA4FF}
+.B .ph .h{font-size:14px}
+.B .big{text-shadow:0 0 18px rgba(255,255,255,.18)}
+.B .r:nth-child(odd){background:rgba(255,255,255,.025)}
+.B .r.me{background:linear-gradient(90deg,rgba(255,90,31,.35),rgba(255,90,31,.05))}
+.B .btn{border-radius:8px;background:rgba(255,255,255,.04);border-color:rgba(140,160,210,.22)}
+.B .btn.pri{background:linear-gradient(180deg,#FF6A33,#E84A12);box-shadow:0 0 14px rgba(255,90,31,.45)}
+.B .seg{border-radius:8px;border-color:rgba(140,160,210,.22)}
+.B .status{background:rgba(6,8,14,.8);border-top:1px solid rgba(255,255,255,.06)}
+.B .onair{display:inline-flex;align-items:center;gap:6px;font:800 10px 'Exo 2';letter-spacing:.16em;color:#fff;background:#C81E1E;border-radius:4px;padding:4px 8px;box-shadow:0 0 12px rgba(200,30,30,.6)}
+.B .onair::before{content:"";width:7px;height:7px;border-radius:50%;background:#fff;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* ---------- C · Кокпит (двигатель, радар, ветер) ---------- */
+.C{background:#0b0d10}
+.C .top{background:#0b0d10;border-bottom:1px solid #1d2128}
+.C .tab.on{color:#fff}
+.C .tab.on::before{content:"";position:absolute;left:4px;top:50%;width:4px;height:4px;margin-top:-2px;border-radius:50%;background:var(--acc);box-shadow:0 0 6px var(--acc)}
+.C .p{background:#12151a;border:1px solid #1f242c;border-radius:14px}
+.C .ph{padding-bottom:4px}
+.C .ph .k{color:#4FBF7A}
+.C .r{border-radius:8px;margin:0 8px}
+.C .r.me{background:rgba(79,191,122,.10);box-shadow:inset 3px 0 0 #4FBF7A}
+.C .btn{border-radius:999px;background:#191d23;border-color:#2a3039}
+.C .btn.pri{background:#EAEEF5;color:#000;border-color:#EAEEF5}
+.C .seg{border-radius:999px}
+.C .seg button.on{border-radius:999px}
+.C .status{background:#0b0d10;border-top:1px solid #1d2128}
+.ring text{font-family:'Roboto Mono'}
+
+/* ---------- D · Табло + шкалы: панели A, полукруги C ---------- */
+.D .p{border-radius:7px}
+.D .btn,.D .seg{border-radius:5px}
+
+/* ---------- E · Кокпит + кромка: графит C, шапка и кромка A ---------- */
+.E .p::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
+.E .ph{border-bottom:1px solid #1f242c;padding-bottom:8px}
+.E .ph .k{color:var(--acc)}
+.E .r.me{background:rgba(255,90,31,.16);box-shadow:inset 3px 0 0 var(--acc)}
+.E .p{border-radius:7px}
+.E .btn,.E .seg,.E .seg button.on{border-radius:5px}
+.E .r{border-radius:4px}
+
+/* ---------- F · Середина ---------- */
+.F{background:#0b0c10}
+.F .top{background:linear-gradient(180deg,#14151b,#0f1015);border-bottom:1px solid #1f232b}
+.F .tab.on{color:#fff}
+.F .tab.on::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2px;border-radius:2px;background:var(--acc)}
+.F .p{background:linear-gradient(180deg,#19161b 0%,#13151a 45%,#121419 100%);border:1px solid rgba(255,255,255,.07);border-radius:7px;box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.F .ph{position:relative;border-bottom:1px solid rgba(255,255,255,.06)}
+.F .ph::before{content:"";position:absolute;left:0;top:10px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
+.F .r{border-radius:4px;margin:0 6px}
+.F .r+.r{box-shadow:0 -1px 0 rgba(255,255,255,.03)}
+.F .r.me{background:linear-gradient(90deg,rgba(255,90,31,.26),rgba(255,90,31,.06))}
+.F .btn{border-radius:5px;background:#1a1d24;border-color:#2e3440}
+.F .seg{border-radius:5px}
+.F .status{background:#0f1015;border-top:1px solid #1f232b}
+
+/* ---------- верхнее меню: 8 вариантов (m1 — как в стиле) ---------- */
+.frame .top[class*=" m"] .tab{letter-spacing:normal}
+.frame .top.m2 .tab{font:italic 900 13px 'Exo 2';letter-spacing:.06em;text-transform:uppercase}
+.frame .top.m3 .tab{font:700 15px 'Bahnschrift';font-stretch:75%;letter-spacing:.07em;text-transform:uppercase}
+.frame .top.m4 .tab{font:600 15px 'Bahnschrift';font-stretch:87.5%;letter-spacing:.01em;text-transform:none}
+.frame .top.m5 .tab{font:600 14px 'Segoe UI Variable Text','Segoe UI';letter-spacing:0;text-transform:none}
+.frame .top.m6 .tab{font:400 14.5px 'Franklin Gothic Medium';letter-spacing:.05em;text-transform:uppercase}
+.frame .top.m7 .tab{font:800 13.5px 'Exo 2';letter-spacing:.06em;text-transform:uppercase}
+.frame .top.m8 .tab{font:700 14.5px 'Bahnschrift';font-stretch:75%;letter-spacing:.08em;text-transform:uppercase}
+/* активная вкладка */
+.frame .top[class*=" m"] .tab.on::after,.frame .top[class*=" m"] .tab.on::before{content:none}
+.frame .top[class*=" m"] .tab.on{text-shadow:none;background:none;color:#fff}
+.frame .top.m2 .tab.on::after,.frame .top.m3 .tab.on::after,.frame .top.m8 .tab.on::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--acc);box-shadow:0 0 12px var(--acc),0 0 3px var(--acc)}
+.frame .top.m4 .tab,.frame .top.m5 .tab{height:32px;border-radius:5px;margin:0 1px}
+.frame .top.m4 .tab.on{background:#232a37;box-shadow:0 0 12px rgba(255,90,31,.30),inset 0 -2px 0 var(--acc)}
+.frame .top.m5 .tab.on{background:var(--acc);box-shadow:0 0 16px rgba(255,90,31,.55)}
+.frame .top.m6 .tab.on{background:linear-gradient(180deg,rgba(255,90,31,0),rgba(255,90,31,.16))}
+.frame .top.m6 .tab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--acc);box-shadow:0 0 10px var(--acc)}
+.frame .top.m7 .tab.on{text-shadow:0 0 10px rgba(255,90,31,.9)}
+.frame .top.m7 .tab.on::before{content:"";position:absolute;left:3px;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc)}
+.frame .top.m8 .tab+.tab::before{content:"/";position:absolute;left:-4px;color:#39404c;font-weight:400}
+.frame .top.m8 .tab.on+.tab::before{content:"/"}
+
+/* ---------- H · цвета A + полукруги и компоновка C, углы небольшие ---------- */
+.H .p{border-radius:7px}
+/* шапка и строка состояния — в цвете окон: тёплый верх, графит снизу, тонкая кромка */
+.H .top{background:linear-gradient(180deg,#1e1618 0%,#181519 55%,#141519 100%);border-bottom:1px solid rgba(255,255,255,.08);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.H .status{background:linear-gradient(180deg,#141519,#1a1517);border-top:1px solid rgba(255,255,255,.07)}
+.H.frame{background:#0c0b0e}
+.H .btn,.H .seg{border-radius:5px}
+/* кнопки без светлой рамки, со свечением: главная светится всегда, остальные — при наведении */
+.H .btn{border-color:transparent;background:#1d232e;transition:box-shadow .15s,background .15s}
+.H .btn:hover{background:#232a37;box-shadow:0 0 12px rgba(255,90,31,.28)}
+.H .btn.pri{background:var(--acc);color:#fff;border-color:transparent;box-shadow:0 0 16px rgba(255,90,31,.55),0 0 3px rgba(255,90,31,.9)}
+.H .btn.pri:hover{background:#FF6A33;box-shadow:0 0 22px rgba(255,90,31,.75),0 0 4px rgba(255,90,31,1)}
+.H .btn kbd{border-color:rgba(255,255,255,.12)}
+.H .seg{border-color:transparent;background:#161b24}
+.H .seg button.on{box-shadow:0 0 12px rgba(47,209,106,.55)}
+.H .seg button.on.w{box-shadow:0 0 12px rgba(234,238,245,.35)}
+
+/* ---------- G · Кокпит со строгими углами: C как есть, скругления как у A ---------- */
+.G .p{border-radius:7px}
+.G .btn,.G .seg,.G .seg button.on{border-radius:5px}
+.G .r{border-radius:4px}
+</style></head><body>
+<div class="picker">
+  <b>Стиль</b><button data-th="H">H · Табло + полукруги</button><button data-th="A">A · Табло</button><button data-th="C">C · Кокпит</button>
+  <button data-th="D">D · Табло + шкалы</button><button data-th="E">E · Кокпит + кромка</button><button data-th="F" aria-pressed="true">F · Середина</button><button data-th="G">G · Кокпит, строже</button>
+  <b style="margin-left:14px">Шкала</b><button data-rc="g" aria-pressed="true">зелёная</button><button data-rc="o">оранжевая</button>
+  <b style="margin-left:14px">Меню</b><span id="menus"></span>
+  <b style="margin-left:14px">Экран</b><button data-sc="ov" aria-pressed="true">Обзор</button><button data-sc="rc">Рейс-контроль</button>
+  <span class="note" id="note"></span>
+</div>
+<div class="frame A" id="app"></div>
+<script>
+const LOGO = 'data:image/png;base64,__LOGO__';
+const NOTE = {
+  A: 'Табло — как Standings: тёмная панель с тёплым градиентом, оранжевая кромка слева, шапка «мелкая цветная строка + крупный заголовок», справа значения. Строки списков — как строки таблицы.',
+  B: 'Эфир — как башня и графика трансляции: стекло, мягкое синее свечение, яркий акцент на активном, плашка ON AIR. Самый «телевизионный».',
+  C: 'Кокпит — как двигатель, радар и ветер: графит, крупные скругления, полукруги-шкалы вместо цифр, зелёный акцент «всё в порядке».',
+  D: 'Табло + шкалы — панели, кромка и шапка из A; на карточках модулей полукруги из C (оранжевые); скругление чуть больше.',
+  E: 'Кокпит + кромка — графит и скругления C, но оранжевая кромка, шапка с линией и подсветка своей строки — из A; полукруги зелёные.',
+  F: 'Середина — графит с тёплым верхом панели, кромка только у заголовка, оранжевые полукруги.',
+  H: 'Табло + полукруги — цвета A (тёплые панели, оранжевая кромка, шапка как у Standings), карточки модулей как в C — полукруг и подпись рядом; углы небольшие. Цвет шкалы — переключателем.',
+  G: 'Кокпит, строже — общий вид и зелёные полукруги C, но углы как у A: панели 7 px, кнопки 5 px, без капсул.',
+};
+let th = 'F', sc = 'ov', menu = 8;
+// база стиля: D — от A, E — от C, F — свой
+const BASE = {A: 'A', B: 'B', C: 'C', D: 'A D', E: 'C E', F: 'F', G: 'C G', H: 'A H'};
+const RINGC = {C: '#4FBF7A', D: '#FF5A1F', E: '#4FBF7A', F: '#FF5A1F', G: '#4FBF7A', H: '#4FBF7A'};
+const MODS = [
+  {id: 'rc', t: 'Рейс-контроль', big: 3, cap: 'инцидентов', sub: 'NASCAR Cup · этап 7', on: 1, k: 'LIVE', gauge: .3},
+  {id: 'bc', t: 'Трансляция', big: 4, cap: 'в эфире', sub: 'Башня · Дельта · Погода · Питы', on: 1, k: 'ON AIR', gauge: .57},
+  {id: 'ov', t: 'Оверлей', big: 3, cap: 'окон включено', sub: 'Standings · Радар · Двигатель', on: 1, k: 'PILOT', gauge: .5},
+  {id: 'tl', t: 'Телеметрия', big: 128, cap: 'кругов записано', sub: 'Las Vegas · Next Gen', on: 1, k: 'REC', gauge: .8},
+];
+const LOG = [
+  ['21:42', 'Рейс-контроль', 'инцидент: #2 и #18, контакт, круг 51', 'acc'],
+  ['21:41', 'Трансляция', 'в эфир: дельта #777 — #77', ''],
+  ['21:40', 'Оверлей', 'лампа перегрева воды: 118° (Next Gen)', 'dn'],
+  ['21:38', 'Рейс-контроль', 'решение: #444 — гоночный инцидент', ''],
+  ['21:36', 'RUTP', 'загружено ливрей: 31 из 34', 'up'],
+  ['21:35', 'Программа', 'сессия: Race, Las Vegas Motor Speedway', ''],
+  ['21:30', 'Телеметрия', 'стинт 2: расход 2,91 л/круг', ''],
+];
+const INC = [
+  {tm: '21:42', lap: 51, cars: [['2', '#51127F', '#20F3BA'], ['18', '#10B981']], kind: 'контакт', st: 'new', me: 1},
+  {tm: '21:39', lap: 49, cars: [['93', '#64748B']], kind: 'вылет', st: 'new'},
+  {tm: '21:38', lap: 48, cars: [['444', '#EC4899'], ['3', '#F59E0B'], ['16', '#10B981']], kind: 'завал', st: 'racing'},
+  {tm: '21:31', lap: 44, cars: [['31', '#F59E0B']], kind: 'скорость в питах', st: 'penalty'},
+  {tm: '21:22', lap: 38, cars: [['77', '#8B5CF6'], ['32', '#64748B']], kind: 'контакт', st: 'review'},
+  {tm: '21:14', lap: 31, cars: [['15', '#F97316']], kind: 'вылет', st: 'racing'},
+];
+const ST = {new: ['новый', '#FF5A1F'], racing: ['гоночный', '#8E8E98'], penalty: ['проезд', '#FF4D4D'], review: ['изучить', '#FFD200']};
+const plate = ([n, c1, c2]) => `<span class="plate" style="background:${c2 ? `linear-gradient(90deg,${c1},${c2})` : c1}"><span>${n}</span></span>`;
+const head = (k, h, stats = []) => `<div class="ph"><div class="t">${k ? `<span class="k">${k}</span>` : ''}<span class="h">${h}</span></div>
+  ${stats.length ? `<div class="stats">${stats.map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('')}</div>` : ''}</div>`;
+function ring(v, lab, col){
+  const R = 30, C = 2 * Math.PI * R, sw = .75;
+  return `<svg class="ring" width="84" height="84" viewBox="-42 -42 84 84">
+    <circle r="${R}" fill="none" stroke="#232831" stroke-width="7" stroke-dasharray="${C * sw} ${C}" transform="rotate(135)" stroke-linecap="round"/>
+    <circle r="${R}" fill="none" stroke="${col}" stroke-width="7" stroke-dasharray="${C * sw * v} ${C}" transform="rotate(135)" stroke-linecap="round"/>
+    <text y="6" text-anchor="middle" font-weight="700" font-size="20" fill="#fff">${lab}</text></svg>`;
+}
+function modCard(m){
+  const sw = `<div class="row" style="justify-content:space-between;margin-top:auto"><span class="seg"><button class="on">Вкл</button><button>Выкл</button></span><button class="btn">Открыть</button></div>`;
+  if(RINGC[th]){
+    const st2 = th === 'C' ? [] : [['статус', 'ОК']];
+    return `<section class="p">${head(m.k, m.t, st2)}<div class="pb"><div class="row" style="gap:14px">${ring(m.gauge, m.big, RINGC[th])}
+      <div><div class="cap">${m.cap}</div><div class="dimt" style="margin-top:4px">${m.sub}</div></div></div>${sw}</div></section>`;
+  }
+  const stats = th === 'A' ? [['статус', m.on ? 'ОК' : '—']] : [];
+  return `<section class="p">${head(m.k, m.t, stats)}<div class="pb"><div class="big">${m.big}</div>
+    <div><div class="cap">${m.cap}</div><div class="dimt" style="margin-top:4px">${m.sub}</div></div>${sw}</div></section>`;
+}
+function overview(){
+  const col = {acc: 'var(--acc)', dn: 'var(--dn)', up: 'var(--up)'};
+  const log = LOG.map(([t, m, e, c]) => `<div class="r"><span class="tm">${t}</span><span class="md" style="color:${col[c] || 'var(--mid)'}">${m}</span><span class="ev">${e}</span></div>`).join('');
+  const acts = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <button class="btn" style="justify-content:space-between">Рейс-контроль поверх сима<kbd>показан</kbd></button>
+    <button class="btn" style="justify-content:space-between">Пульт поверх сима<kbd>скрыт</kbd></button>
+    <button class="btn" style="justify-content:space-between">Редактор трансляции<kbd>5</kbd></button>
+    <button class="btn pri" style="justify-content:space-between">Включить всё к гонке<kbd style="color:#fff;border-color:rgba(255,255,255,.5)">F9</kbd></button></div>
+    <div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:10px">
+      <div><div class="cap">Обновления</div><div class="dimt">установлена 2.54.4 · проверка раз в час</div></div><button class="btn">Проверить</button></div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">${MODS.map(modCard).join('')}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <section class="p">${head('', 'Действия')}<div class="pb">${acts}</div></section>
+      <section class="p">${head('', 'Журнал', [['событий', '60']])}<div class="rows" style="padding-bottom:8px">${log}</div></section></div>`;
+}
+function racecontrol(){
+  const rows = INC.map(i => { const [s, c] = ST[i.st];
+    return `<div class="r ${i.me ? 'me' : ''}" style="height:34px"><span class="tm">${i.tm}</span><span class="tm" style="width:40px">L${i.lap}</span>
+      <span class="row" style="gap:4px;width:110px">${i.cars.map(plate).join('')}</span><span class="ev" style="flex:1">${i.kind}</span>
+      <span class="tag" style="color:${c};background:${c}22">${s}</span></div>`; }).join('');
+  const det = `<div class="row" style="gap:6px">${INC[0].cars.map(plate).join('')}<span style="font:800 13.5px 'Exo 2';letter-spacing:.06em;text-transform:uppercase;margin-left:6px">Sobetov · Gladkov</span></div>
+    <div class="dimt">Контакт в 3-м повороте, круг 51 · +4x и +2x · в повторе 21:42:07</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn">⟲ −10 с</button><button class="btn pri">▶ К инциденту</button><button class="btn">Камера: TV1</button></div>
+    <div class="cap" style="margin-top:6px">Решение</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><button class="btn">Гоночный</button><button class="btn">Изучить</button><button class="btn" style="color:var(--dn)">Наказание</button></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap"><span class="seg"><button class="on w">Проезд</button><button>+5 с</button><button>В конец</button><button>DQ</button></span></div>`;
+  const stats = [['сессия', 'RACE'], ['круг', '51/267'], ['новых', '2']];
+  return `<div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:12px;align-items:start">
+    <section class="p">${head(th === 'C' ? 'LIVE' : 'RACE · LAS VEGAS · 34 машины', 'Инциденты', stats)}<div class="rows" style="padding:4px 0 8px">${rows}</div></section>
+    <section class="p">${head('новый · 21:42', 'Инцидент #14')}<div class="pb">${det}</div></section></div>`;
+}
+function render(){
+  const tabs = ['Обзор', 'Рейс-контроль', 'Трансляция', 'Оверлей', 'RUTP'];
+  const cur = sc === 'ov' ? 0 : 1;
+  const app = document.getElementById('app');
+  app.className = 'frame ' + BASE[th];
+  app.innerHTML = `<div class="top${menu > 1 ? ' m' + menu : ''}"><img class="logo" src="${LOGO}">${tabs.map((t, i) => `<span class="tab ${i === cur ? 'on' : ''}">${t}</span>`).join('')}
+    <span class="sp"></span>${th === 'B' ? '<span class="onair" style="margin-right:14px">ON AIR · 4</span>' : ''}<span class="acct"><i>S</i>Sergi Sobetov</span></div>
+    <div class="body">${sc === 'ov' ? overview() : racecontrol()}</div>
+    <div class="status"><span class="ok">■ Аккаунт irchamps.gg</span><span>■ Этап 7 привязан</span><span class="warn">■ Решений ждут отправки: 2</span><span>■ Эфир: 4</span><span class="ok">■ iRacing · Live</span><span class="sp"></span><span>iRC v2.54.4</span></div>`;
+  document.getElementById('note').textContent = NOTE[th];
+}
+document.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { th = b.dataset.th; document.querySelectorAll('[data-th]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render(); });
+// меню: 1 — как в выбранном стиле, 2–8 — варианты шрифта и активной вкладки
+const MENU_T = ['сейчас', 'Exo 2 курсив', 'Bahnschrift узкий', 'Bahnschrift строчные', 'Segoe UI', 'Franklin', 'Exo 2 плотнее', 'узкий + «/»'];
+document.getElementById('menus').innerHTML = MENU_T.map((x, i) =>
+  `<button data-mn="${i + 1}" title="${x}" aria-pressed="${i + 1 === menu}" style="padding:0 9px">${i + 1}</button>`).join('');
+document.querySelectorAll('[data-mn]').forEach(b => b.onclick = () => { menu = +b.dataset.mn;
+  document.querySelectorAll('[data-mn]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render(); });
+document.querySelectorAll('[data-rc]').forEach(b => b.onclick = () => {
+  RINGC.H = b.dataset.rc === 'g' ? '#4FBF7A' : '#FF5A1F';
+  document.querySelectorAll('[data-rc]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render(); });
+document.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { sc = b.dataset.sc; document.querySelectorAll('[data-sc]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render(); });
+render();
+</script></body></html>

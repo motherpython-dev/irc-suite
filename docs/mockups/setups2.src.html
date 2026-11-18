@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Сетапы — история и резина</title>
+<style>
+@font-face{font-family:'Exo 2';src:url(data:font/ttf;base64,__EXO__) format('truetype');font-weight:100 900}
+@font-face{font-family:'Roboto Mono';src:url(data:font/ttf;base64,__MONO__) format('truetype');font-weight:100 700}
+:root{--acc:#FF5A1F;--fg:#EAEEF5;--dim:#8E8E98;--mid:#C3C9D3;--up:#2FD16A;--best:#C38BFF;--line:#2C323C}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0c10;color:var(--fg);font:14px 'Exo 2',system-ui,sans-serif;padding:22px 16px 40px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;margin:0 0 4px;letter-spacing:.04em}
+p.sub{color:var(--dim);font-size:13px;margin:0 0 16px;line-height:1.5}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.scene{flex:1 1 640px;min-height:330px;border-radius:8px;padding:26px;background:linear-gradient(160deg,#3a4a5c,#1d232c 55%,#2b3038);display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+.cap{font:800 10px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:#cfd4dc}
+/* окно оверлея — как Standings */
+.ov{background:linear-gradient(180deg,rgba(30,22,24,.95),rgba(16,20,28,.93));border:1px solid rgba(255,255,255,.08);border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.45);position:relative;overflow:hidden}
+.ov::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--acc)}
+.hd{display:flex;align-items:flex-end;gap:14px;padding:8px 14px 6px;border-bottom:1px solid var(--line)}
+.hd .t{display:flex;flex-direction:column}
+.hd .k{font:800 9px 'Exo 2';letter-spacing:.2em;color:var(--acc);text-transform:uppercase}
+.hd .h{font:800 13.5px 'Exo 2';letter-spacing:.08em;text-transform:uppercase}
+.hd .r{margin-left:auto;display:flex;gap:14px}
+.st{display:flex;flex-direction:column;align-items:flex-end}
+.st span{font:800 8.5px 'Exo 2';letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.st b{font:700 13px 'Roboto Mono'}
+table{border-collapse:collapse;table-layout:fixed}
+col.lab{width:62px} col.s{width:118px}
+th,td{padding:0 12px;height:26px;white-space:nowrap}
+th{font:800 8.5px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim);height:38px;vertical-align:bottom;padding-bottom:6px;text-align:right;position:relative}
+th:first-child,td:first-child{text-align:left;color:var(--dim);font:800 9.5px 'Exo 2';letter-spacing:.16em;padding-left:14px}
+th .nm{display:block;font:700 11.5px 'Exo 2';letter-spacing:.02em;text-transform:none;color:var(--fg);overflow:hidden;text-overflow:ellipsis}
+th .ed{display:block;font:700 9px 'Roboto Mono';letter-spacing:0;color:var(--dim)}
+th.cur .nm{color:#fff}
+th.cur::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:2px;background:var(--acc);box-shadow:0 0 8px var(--acc)}
+th .pin{color:var(--acc);margin-right:4px}
+td{font:500 12.5px 'Roboto Mono';text-align:right;color:var(--mid)}
+td.b{color:var(--up);font-weight:700}
+td.p{color:var(--best);font-weight:700}
+td.dl{font-size:11px;color:var(--dim)}
+tr.lap td{font-size:13.5px;color:var(--fg);border-top:1px solid var(--line)}
+tr.lap td.b{color:var(--up)} tr.lap td.p{color:var(--best)}
+tr.n td{font-size:11px;color:var(--dim);height:22px}
+td.curc{background:rgba(255,90,31,.10)}
+/* панель настроек — стиль F */
+.set{flex:0 1 420px;background:linear-gradient(180deg,#19161b 0%,#13151a 45%,#121419 100%);border:1px solid rgba(255,255,255,.07);border-radius:7px;padding:0 0 14px}
+.set .ph{position:relative;padding:10px 14px 8px;border-bottom:1px solid rgba(255,255,255,.06);font:800 13px 'Exo 2';letter-spacing:.08em;text-transform:uppercase}
+.set .ph::before{content:"";position:absolute;left:0;top:10px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
+.kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px 12px;align-items:center;padding:12px 14px 0}
+.lab{font:800 9.5px 'Exo 2';letter-spacing:.16em;text-transform:uppercase;color:#71767f}
+.seg{display:inline-flex;background:#1a1d24;border-radius:5px 5px 2px 2px}
+.seg button{font:800 10.5px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;color:var(--dim);background:none;border:0;height:28px;padding:0 11px;box-shadow:inset 0 -2px 0 #2e3440;cursor:pointer}
+.seg button.on{color:#fff;box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.7)}
+.seg button.g{box-shadow:inset 0 -2px 0 var(--up),0 6px 12px -6px rgba(47,209,106,.7)}
+.list{grid-column:1/-1;display:flex;flex-direction:column;gap:4px}
+.it{display:flex;align-items:center;gap:8px;background:#16181e;border-radius:5px;padding:6px 10px;font-size:12.5px}
+.it .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .m{font:500 11px 'Roboto Mono';color:var(--dim)}
+.it button{font:800 9.5px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;border:0;border-radius:4px 4px 2px 2px;height:24px;padding:0 9px;background:#1a1d24;color:var(--dim);box-shadow:inset 0 -2px 0 #2e3440;cursor:pointer}
+.it button.on{color:#fff;box-shadow:inset 0 -2px 0 var(--acc)}
+.note{color:var(--dim);font-size:12px;line-height:1.5;padding:12px 14px 0}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.ctl b{font:800 11px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+</style></head><body><div class="wrap"><style>
+/* добавки к мокапу «Сетапы»: история заездов и блок «Резина» */
+th .who{display:block;font:800 8.5px 'Exo 2';letter-spacing:.12em;color:var(--acc);text-transform:uppercase;margin-bottom:1px}
+tr.grp td{height:24px;font:800 8.5px 'Exo 2';letter-spacing:.18em;color:var(--acc);text-transform:uppercase;text-align:left;border-top:1px solid var(--line);padding-top:4px}
+td.tyre{padding:6px 8px 8px;height:auto;vertical-align:top}
+.tg{width:100%}
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tc{background:rgba(255,255,255,.035);border-radius:3px;padding:3px 3px 4px}
+.tc .c{display:flex;justify-content:space-between;font:800 7.5px 'Exo 2';letter-spacing:.12em;color:var(--dim);padding:0 2px 2px}
+.tc .c b{font:600 8.5px 'Roboto Mono';letter-spacing:0;color:var(--mid)}
+.tc .z{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px}
+.tc .z span{display:flex;flex-direction:column;align-items:center;background:rgba(0,0,0,.25);border-radius:2px;padding:2px 0;line-height:1.2}
+.tc .z .w{font:700 9.5px 'Roboto Mono'}
+.tc .z .t{font:500 8.5px 'Roboto Mono';color:var(--mid)}
+.tl{display:flex;justify-content:space-between;font:800 7px 'Exo 2';letter-spacing:.1em;color:#5c6370;padding:1px 3px 0}
+td.na{color:#5c6370}
+</style>
+<h1>Сетапы — история заездов и резина</h1>
+<p class="sub">Режим «История» сводит заезды по этой трассе и машине: один и тот же сетап из разных дней — один столбец.
+Сектора есть только у текущей сессии (в истории их не записывали). Блок «Резина» — по замерам iRacing на пит-стопах:
+по каждому колесу три части, как отдаёт iRacing (левая, центр, правая): износ за круг и температура, плюс горячее давление колеса. В режиме организатора у столбца — чей сетап.</p>
+<div class="ctl"><b>Показывать</b><span class="seg" id="mode"><button class="on" data-m="sess">эта сессия</button><button data-m="hist">все заезды</button></span>
+  <b style="margin-left:10px">Кто смотрит</b><span class="seg" id="who"><button class="on" data-w="me">пилот</button><button data-w="admin">организатор</button></span>
+  <b style="margin-left:10px">Резина</b><span class="seg" id="ty"><button class="on" data-t="1">вкл</button><button data-t="0">выкл</button></span></div>
+<div class="row"><div class="scene" style="flex-basis:100%"><span class="cap">как в симе</span><div class="ov" id="ov"></div></div></div>
+<div class="note" style="padding:12px 0 0">Цвета износа: зелёный — меньше 0,20 % за круг, жёлтый — до 0,35 %, красный — больше.
+Температура: синяя — холодная сторона, красная — горячая (разница между краями больше 8 °C). «—» — на этом сетапе ещё не было пит-стопа.</div>
+<script>
+const SESS = [
+  {name: 'homestead_oval', ed: 'файл', who: 'Sobetov', laps: 14, s: [10.412, 9.871, 10.233], lap: 30.498, theo: 30.516, avg: 30.712, fuel: .118, trk: 34,
+   ty: {LF: [[0.21, 0.18, 0.15], [71, 76, 79], 179], RF: [[0.36, 0.31, 0.26], [96, 91, 84], 310], LR: [[0.14, 0.12, 0.1], [64, 66, 67], 179], RR: [[0.25, 0.22, 0.19], [82, 80, 77], 310]}},
+  {name: 'homestead_oval', ed: 'изм. 1', who: 'Sobetov', laps: 9, s: [10.398, 9.902, 10.219], lap: 30.519, theo: 30.519, avg: 30.690, fuel: .121, trk: 35, cur: 1,
+   ty: {LF: [[0.2, 0.17, 0.14], [72, 75, 77], 181], RF: [[0.41, 0.36, 0.31], [99, 92, 83], 314], LR: [[0.13, 0.11, 0.09], [63, 65, 66], 178], RR: [[0.28, 0.24, 0.2], [84, 81, 77], 309]}},
+];
+const HIST = [
+  {name: 'homestead_oval', ed: '3 заезда', who: 'Sobetov', laps: 41, s: null, lap: 30.421, avg: 30.655, fuel: .119, trk: 31,
+   ty: {LF: [[0.21, 0.18, 0.15], [71, 76, 79], 179], RF: [[0.37, 0.32, 0.27], [97, 91, 84], 311], LR: [[0.14, 0.12, 0.1], [64, 66, 67], 179], RR: [[0.26, 0.23, 0.2], [83, 80, 77], 310]}},
+  {name: 'homestead_v2', ed: '1 заезд', who: 'Sobetov', laps: 12, s: null, lap: 30.588, avg: 30.801, fuel: .121, trk: 38,
+   ty: {LF: [[0.24, 0.21, 0.18], [70, 74, 75], 176], RF: [[0.33, 0.29, 0.25], [92, 90, 87], 306], LR: [[0.15, 0.13, 0.11], [63, 64, 66], 177], RR: [[0.24, 0.21, 0.18], [80, 79, 78], 308]}},
+  {name: 'hms_belo_race', ed: '2 заезда', who: 'Belogurov', admin: 1, laps: 27, s: null, lap: 30.377, avg: 30.598, fuel: .117, trk: 33,
+   ty: {LF: [[0.18, 0.16, 0.14], [73, 77, 78], 182], RF: [[0.31, 0.27, 0.23], [93, 92, 88], 304], LR: [[0.13, 0.11, 0.09], [65, 66, 66], 180], RR: [[0.23, 0.2, 0.17], [81, 80, 79], 305]}},
+  {name: 'baseline', ed: '1 заезд', who: 'Kulik', admin: 1, laps: 6, s: null, lap: 30.912, avg: 31.140, fuel: .124, trk: 30, ty: null},
+];
+let mode = 'sess', who = 'me', ty = 1;
+const f3 = v => v == null ? '—' : v.toFixed(3);
+const wc = w => w < .20 ? 'var(--up)' : w < .35 ? '#FFD200' : '#FF6B6B';
+function tcol(t, i, arr){ const lo = Math.min(...arr), hi = Math.max(...arr); if(hi - lo <= 8) return 'var(--mid)'; return t === hi ? '#FF8A6A' : t === lo ? '#7FB3FF' : 'var(--mid)'; }
+function tyreCell(t, c){
+  if(!t) return `<td class="tyre na${c && c.cur ? ' curc' : ''}">—</td>`;
+  // колесо — три части, как отдаёт iRacing: левая, центр, правая (wearL/M/R, tempCL/CM/CR)
+  const wheel = k => { const [w, tt, p] = t[k]; return `<div class="tc"><span class="c">${k}<b>${p} kPa</b></span>
+    <div class="z">${[0, 1, 2].map(i => `<span><i class="w" style="color:${wc(w[i])};font-style:normal">${w[i].toFixed(2)}</i><i class="t" style="color:${tcol(tt[i], i, tt)};font-style:normal">${tt[i]}°</i></span>`).join('')}</div>
+    <div class="tl"><span>Л</span><span>Ц</span><span>П</span></div></div>`; };
+  return `<td class="tyre${c && c.cur ? ' curc' : ''}"><div class="tg">${wheel('LF')}${wheel('RF')}${wheel('LR')}${wheel('RR')}</div></td>`;
+}
+function render(){
+  let cols = mode === 'sess' ? SESS : HIST.filter(c => who === 'admin' || !c.admin);
+  const W = ty ? 210 : 118;
+  const best = Math.min(...cols.map(c => c.lap));
+  const head = `<div class="hd"><div class="t"><span class="k">${mode === 'sess' ? 'practice · homestead · silverado' : 'все заезды · homestead · silverado'}</span><span class="h">Сетапы</span></div>
+    <div class="r"><div class="st"><span>сетапов</span><b>${cols.length}</b></div><div class="st"><span>лучшее</span><b>${f3(best)}</b></div></div></div>`;
+  const th = cols.map(c => `<th class="${c.cur ? 'cur' : ''}">${who === 'admin' ? `<span class="who">${c.who}</span>` : ''}<span class="nm">${c.name}</span><span class="ed">${c.ed}${c.cur ? ' · сейчас' : ''}</span></th>`).join('');
+  const cur = c => c.cur ? ' curc' : '';
+  let rows = '';
+  if(mode === 'sess') rows += ['S1', 'S2', 'S3'].map((s, k) => `<tr><td>${s}</td>${cols.map(c => `<td class="${cur(c)}">${f3(c.s[k])}</td>`).join('')}</tr>`).join('');
+  rows += `<tr class="lap"><td>КРУГ</td>${cols.map(c => `<td class="${c.lap === best ? 'p' : ''}${cur(c)}">${f3(c.lap)}</td>`).join('')}</tr>`;
+  rows += `<tr class="n"><td>СРЕДН.</td>${cols.map(c => `<td class="${cur(c)}">${f3(c.avg)}</td>`).join('')}</tr>`;
+  rows += `<tr class="n"><td></td>${cols.map(c => `<td class="dl${cur(c)}">${c.lap === best ? '—' : '+' + (c.lap - best).toFixed(3)}</td>`).join('')}</tr>`;
+  rows += `<tr class="n"><td>ТРАССА</td>${cols.map(c => `<td class="${cur(c)}">${c.trk} °C</td>`).join('')}</tr>`;
+  rows += `<tr class="n"><td>ТОПЛ/КР</td>${cols.map(c => `<td class="${cur(c)}">${(c.fuel * 28.6).toFixed(2)} л</td>`).join('')}</tr>`;
+  rows += `<tr class="n"><td>КРУГОВ</td>${cols.map(c => `<td class="${cur(c)}">${c.laps}</td>`).join('')}</tr>`;
+  if(ty){
+    rows += `<tr class="grp"><td colspan="${cols.length + 1}">Резина · последний пит-стоп · износ % за круг и температура: левая · центр · правая часть</td></tr>`;
+    rows += `<tr><td></td>${cols.map(c => tyreCell(c.ty, c)).join('')}</tr>`;
+  }
+  document.getElementById('ov').innerHTML = head + `<table style="width:${86 + W * cols.length}px"><colgroup><col style="width:86px">${cols.map(() => `<col style="width:${W}px">`).join('')}</colgroup><tr><th></th>${th}</tr>${rows}</table>`;
+}
+document.addEventListener('click', e => {
+  const m = e.target.closest('[data-m]'); if(m){ mode = m.dataset.m; document.querySelectorAll('#mode button').forEach(b => b.classList.toggle('on', b === m)); render(); }
+  const w = e.target.closest('[data-w]'); if(w){ who = w.dataset.w; document.querySelectorAll('#who button').forEach(b => b.classList.toggle('on', b === w)); render(); }
+  const t = e.target.closest('[data-t]'); if(t){ ty = +t.dataset.t; document.querySelectorAll('#ty button').forEach(b => b.classList.toggle('on', b === t)); render(); }
+});
+render();
+</script>
+</div></body></html>

@@ -150,6 +150,11 @@ class Tray:
 
     # ---------- жизненный цикл ----------
 
+    def quit(self) -> None:
+        """Выход снаружи: так закрывается программа перед установкой
+        обновления, чтобы установщик мог заменить exe."""
+        self._quit()
+
     def _quit(self) -> None:
         from .ui import host
         self.app.stop()

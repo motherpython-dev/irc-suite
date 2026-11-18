@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>iRC · элементы</title>
+<link rel="stylesheet" href="/ui/irc.css">
+<style>
+  /* Образец набора: открывается по /ui/kit.html, сверять окна с ним. */
+  body{overflow:auto}
+  .sheet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:8px;max-width:1280px}
+</style>
+</head>
+<body>
+<div class="shell" style="height:auto;min-height:100%">
+  <header class="top">
+    <a class="brand" href="/"><img src="/assets/logo.png" alt="iRC"></a>
+    <button class="tab" aria-current="page">Обзор<kbd>1</kbd></button>
+    <button class="tab">Рейс-контроль<kbd>2</kbd></button>
+    <button class="tab">Трансляция<kbd>3</kbd></button>
+    <span class="grow"></span>
+    <div class="sess"><span class="live">LIVE</span><span>SPA</span><span>00:44:12</span><span class="dim">КРУГ 9/24</span></div>
+    <button class="acct"><span class="ini">S</span>Sobetov</button>
+  </header>
+
+  <main class="sheet">
+    <section class="p"><div class="ph">Клавиши<span class="r">40 · 32 · 56</span></div><div class="pb">
+      <div class="row" style="flex-wrap:wrap">
+        <button class="k">Обычная</button><button class="k pri">Основная <kbd>L</kbd></button>
+        <button class="k warn">Жёлтый <kbd>Y</kbd></button><button class="k hit">Наказать <kbd>X</kbd></button>
+        <button class="k go">Включено</button><button class="k sel">Выбрано</button><button class="k" disabled>Недоступна</button>
+      </div>
+      <div class="row"><button class="k s">Малая</button><button class="k air">В эфире <kbd>F1</kbd></button><button class="k arm">Подтвердить</button></div>
+      <button class="k l full">Крупная на всю ширину <kbd>M1</kbd></button>
+    </div></section>
+
+    <section class="p"><div class="ph">Вкл / выкл и выбор</div><div class="pb">
+      <div class="kv">
+        <span class="k-label">Рейс-контроль</span><span id="o1"></span>
+        <span class="k-label">RUTP</span><span id="o2"></span>
+        <span class="k-label">Гэп</span><span id="s1"></span>
+        <span class="k-label">Недоступно</span><span id="o3"></span>
+      </div>
+    </div></section>
+
+    <section class="p"><div class="ph">Таблица<span class="r">строка 36</span></div>
+      <div class="tr h" style="grid-template-columns:32px 44px 1fr 84px 48px"><span class="ar">P</span><span>№</span><span>Пилот</span><span class="ar">До лидера</span><span class="ar">Инц</span></div>
+      <div class="tr click cur" style="grid-template-columns:32px 44px 1fr 84px 48px"><span class="bar" style="background:var(--air)"></span><span class="num ar">1</span><span><span class="cn gt3">12</span></span><span class="nm">Ivan A Ivanov</span><span class="num ar">ЛИДЕР</span><span class="num ar dim">4</span></div>
+      <div class="tr click" style="grid-template-columns:32px 44px 1fr 84px 48px"><span class="num ar">2</span><span><span class="cn gt4">9</span></span><span class="nm">Nikolay Romanov</span><span class="num ar">+2.1</span><span class="num ar dim">2</span></div>
+      <div class="tr click" style="grid-template-columns:32px 44px 1fr 84px 48px"><span class="num ar">3</span><span><span class="cn">11</span></span><span class="nm">Vsevolod Osipov</span><span class="num ar">+3.9</span><span class="num ar" style="color:var(--hit-text)">12</span></div>
+    </section>
+
+    <section class="p"><div class="ph">Текст и поля</div><div class="pb">
+      <div class="row" style="gap:16px"><span class="tag" style="color:var(--on)">■ работает</span><span class="tag" style="color:var(--air)">■ в эфире</span><span class="tag" style="color:var(--warn)">■ ждёт</span><span class="tag faint">■ выкл</span></div>
+      <div><div class="big">18</div><div class="cap dim" style="margin-top:8px">ливрей в сессии</div></div>
+      <input class="inp text" placeholder="Имя комментатора" id="f1">
+      <select class="inp" id="f2"><option>до лидера</option><option>до впереди</option></select>
+      <div class="lbl">Подпись поля</div>
+    </div></section>
+  </main>
+
+  <footer class="status"><span class="s ok">аккаунт irchamps.gg</span><span class="s ok">этап · GT3 Лига · этап 3</span><span class="s wa">1 решение ждёт отправки</span><span class="grow"></span><span>образец набора</span></footer>
+</div>
+<script src="/ui/irc.js"></script>
+<script>
+  const S = {rc:true, rutp:false, gap:'leader'};
+  function draw(){
+    irc.setHTML(document.getElementById('o1'), irc.onoff('rc', S.rc));
+    irc.setHTML(document.getElementById('o2'), irc.onoff('rutp', S.rutp));
+    irc.setHTML(document.getElementById('s1'), irc.seg('gap', [['leader','до лидера'],['ahead','до впереди']], S.gap));
+    irc.setHTML(document.getElementById('o3'), irc.onoff('x', false, true));
+  }
+  irc.on('onoff', (k, on) => { S[k] = on; draw(); irc.toast(`${k}: ${on ? 'включено' : 'выключено'}`, on ? 'ok' : ''); });
+  irc.on('seg', (k, v) => { S[k] = v; draw(); });
+  irc.keys({'Y': () => irc.toast('Жёлтый флаг', 'wa')});
+  draw();
+</script>
+</body>
+</html>

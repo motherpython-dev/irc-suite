@@ -7,542 +7,1075 @@
 <link rel="apple-touch-icon" href="/assets/icon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>iRC</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ui/irc.css">
 <style>
-  /* Токены ichamps — static/css/racing.css, тема data-theme="dark" */
+  /* Главное окно. Элементы — из /ui/irc.css; здесь только раскладка вкладок. */
   :root{
-    --bg:#0B0E14; --surface:#141923; --surface-2:#1B2230; --surface-3:#232C3D;
-    --line:#28303F; --line-strong:#3A4456;
-    --fg:#EAEEF5; --dim:#9AA6B8; --light:#6B7689;
-    --accent:#FF5A1F; --accent-hover:#E14A12;
-    --live:#22C55E; --replay:#F59E0B; --off:#6B7689;
-    --est:#A78BFA; --hit:#EF4444; --offtrack:#38BDF8;
-    --radius:.75rem; --shadow:0 8px 30px -12px rgba(0,0,0,.6);
+    /* имена, которыми пользуется окно «Сообщить об ошибке» (bugreport.js) */
+    --surface:var(--panel); --surface-2:var(--raise); --accent:var(--acc);
+    --shadow:0 12px 32px -12px #000;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);
-       font:14px/1.5 'Inter','Manrope','Segoe UI',system-ui,sans-serif}
-  a{color:var(--accent);text-decoration:none}
-
-  /* ---------- шапка ---------- */
-  header{display:flex;align-items:center;gap:14px;padding:12px 20px;
-         background:var(--surface);border-bottom:1px solid var(--line);
-         position:sticky;top:0;z-index:10}
-  .brand{display:flex;align-items:center;gap:.6rem;font-family:'Rubik','Inter',sans-serif;
-         font-weight:700;letter-spacing:.3px;font-size:15px}
-  .brand{text-decoration:none}
-  .brand .logo{height:26px;display:block}
-  .pill{padding:4px 11px;border-radius:999px;font-size:12px;font-weight:600;
-        text-transform:uppercase;letter-spacing:.6px}
-  .pill.LIVE{background:rgba(34,197,94,.14);color:var(--live);
-             box-shadow:inset 0 0 0 1px rgba(34,197,94,.38)}
-  .pill.REPLAY{background:rgba(245,158,11,.14);color:var(--replay);
-               box-shadow:inset 0 0 0 1px rgba(245,158,11,.38)}
-  .pill.OFFLINE{background:rgba(107,118,137,.14);color:var(--off);
-                box-shadow:inset 0 0 0 1px rgba(107,118,137,.38)}
-  .meta{color:var(--dim);font-size:12.5px;display:flex;gap:16px;flex-wrap:wrap}
-  .spacer{flex:1}
-  .ver{color:var(--light);font-size:12px}
-
-  /* ---------- каркас ---------- */
-  .wrap{display:grid;grid-template-columns:236px 1fr;min-height:calc(100vh - 57px)}
-  nav{border-right:1px solid var(--line);background:var(--surface);padding:14px 10px}
-  .navitem{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
-           cursor:pointer;color:var(--dim);font-weight:500}
-  .navitem:hover{background:var(--surface-2);color:var(--fg)}
-  .navitem.active{background:var(--surface-3);color:var(--fg)}
-  .navitem .dot{width:8px;height:8px;border-radius:50%;background:var(--off);flex:none}
-  .navitem.on .dot{background:var(--live)}
-  .navitem .soon{margin-left:auto;font-size:10px;color:var(--light);
-                 text-transform:uppercase;letter-spacing:.5px}
-  main{padding:22px 26px;max-width:1100px}
-  h1{font-family:'Rubik','Inter',sans-serif;font-size:20px;margin:0 0 4px}
-  .sub{color:var(--dim);font-size:13px;margin-bottom:20px}
-
-  /* ---------- карточки модулей ---------- */
-  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-        padding:16px 18px}
-  .card h3{font-family:'Rubik','Inter',sans-serif;margin:0 0 6px;font-size:15px;
-           display:flex;align-items:center;gap:8px}
-  .card p{color:var(--dim);font-size:13px;margin:0 0 14px;min-height:38px}
-  .card .row{display:flex;align-items:center;gap:10px}
-  .state{font-size:12px;color:var(--dim)}
-  .state b{color:var(--live)}
-  .state.off b{color:var(--off)}
-  .err{color:var(--hit);font-size:12px;margin-top:8px}
-
-  /* ---------- переключатель ---------- */
-  .sw{position:relative;width:44px;height:24px;flex:none;border-radius:999px;
-      background:var(--surface-3);cursor:pointer;transition:background .15s}
-  .sw::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;
-             border-radius:50%;background:var(--light);transition:.15s}
-  .sw.on{background:rgba(255,90,31,.3)}
-  .sw.on::after{left:23px;background:var(--accent)}
-  .sw.busy{opacity:.5;pointer-events:none}
-
-  button{background:var(--surface-2);color:var(--fg);border:1px solid var(--line);
-         border-radius:10px;padding:7px 14px;cursor:pointer;font:inherit;font-size:13px}
-  button:hover{background:var(--surface-3)}
-  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
-  button.primary:hover{background:var(--accent-hover)}
-
-  .empty{color:var(--dim);padding:40px 0;text-align:center}
-  .kv{display:grid;grid-template-columns:190px 1fr;gap:8px 16px;font-size:13px}
-  .kv div:nth-child(odd){color:var(--dim)}
-  .kv input[type=text], .kv input:not([type]), .kv input[type=number], .kv select{
-    width:100%;background:var(--surface-2);color:var(--fg);
-    border:1px solid var(--line);border-radius:8px;padding:6px 9px;font:inherit;font-size:13px}
-  .kv input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
-  .ovrow{display:flex;align-items:center;gap:10px;padding:6px 0;
-         border-top:1px solid var(--line)}
-  .ovrow .ovname{width:180px;font-size:13px}
-  .ovrow code{flex:1}
-  .ovrow .ovstate{font-size:12px;color:var(--light);width:64px}
-  .ovrow .ovstate.live{color:var(--live)}
-  .pill.demo{background:#3A2A12;color:#FFB86B;border-color:#5A4020}
-  .demorow{display:flex;align-items:center;gap:12px;margin-top:18px;
-           padding:14px 16px;border:1px solid var(--line);border-radius:12px;
-           background:var(--surface)}
-  .demorow .txt{flex:1}
-  .demorow .txt b{display:block;margin-bottom:2px}
-  .demorow .txt span{color:var(--dim);font-size:12px}
-  .ovrow .sw{transform:scale(.82);transform-origin:left center}
-  button.mini{padding:5px 10px;font-size:12px;color:var(--dim)}
-  code{background:var(--surface-2);padding:2px 6px;border-radius:6px;font-size:12px}
-  #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px}
-  .toast{background:var(--surface);border:1px solid var(--line);
-         border-left:3px solid var(--accent);border-radius:10px;padding:10px 14px;
-         max-width:340px;font-size:13px;box-shadow:var(--shadow)}
-  .toast.err{border-left-color:var(--hit)}
+  #tabs{display:contents}
+  .content{display:block;overflow:hidden}
+  .pg{height:100%;display:grid;gap:8px;min-height:0}
+  .pg.scroll{overflow-y:auto;align-content:start;grid-auto-rows:max-content}
+  .gate[hidden]{display:none}
+  .gate .pb .k{justify-content:center}
+  .gate .code{font:500 40px/1.2 var(--f-num);letter-spacing:.2em;color:var(--acc);text-align:center}
+  .menu[hidden]{display:none}
+  /* «Трансляция» — два режима: «Подготовка» (оверлеи, настройки, оформление)
+     и «Эфир» (пульт: кнопки эфира, камеры, пилоты, макросы). Сверху — переключатель. */
+  .bcw{grid-template-rows:auto minmax(0,1fr)}
+  .bc-mode{gap:12px;min-width:0}
+  /* широкий блок настроек: пары «подпись — значение» в несколько колонок */
+  .kv.wide{grid-template-columns:repeat(auto-fill,128px minmax(250px,1fr))}
+  .kv.wide > .rest{grid-column:2/-1}
+  .kv.wide > .lab1{grid-column:1}
+  /* группы внутри блока (колонки гонки, практики, шрифты) — линия на всю ширину,
+     подпись у первой строки кнопок, а не посередине */
+  .kv > .kv-sep{grid-column:1/-1;border-top:1px solid var(--line);margin:4px 0 0}
+  .fx-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
+  .fx-pick .k{justify-content:center;min-width:0}
+  .kv > .lab1{align-self:start;padding-top:9px}
+  .seg-big{display:inline-flex;flex:none;background:var(--raise);border-radius:5px 5px 2px 2px;overflow:hidden}
+  .seg-big button{height:var(--h-m);padding:0 22px;font:800 12px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+                  box-shadow:inset 0 -2px 0 var(--edge);display:flex;align-items:center;gap:10px}
+  .seg-big button:hover{color:#C3C9D3}
+  .seg-big button[aria-pressed="true"]{color:#fff;box-shadow:inset 0 -3px 0 var(--acc),0 8px 14px -6px rgba(255,90,31,.7)}
+  .seg-big button.onair[aria-pressed="true"]{color:#fff;background:linear-gradient(180deg,#2A1717,#211517);
+                  box-shadow:inset 0 -3px 0 var(--air),0 8px 14px -6px rgba(255,45,45,.8)}
+  .seg-big .dot{width:8px;height:8px;border-radius:50%;background:var(--air)}
+  .seg-big .onair[aria-pressed="true"] .dot{background:#fff}
+  /* «Подготовка»: список оверлеев, справа предпросмотр и настройки.
+     В узком окне предпросмотр встаёт над настройками. */
+  .bc{display:grid;gap:8px;min-height:0;align-items:start;grid-template-rows:minmax(0,1fr);
+      grid-template-columns:minmax(280px,1fr) minmax(280px,1fr) minmax(320px,1.1fr);grid-template-areas:"list out set"}
+  .bc > .bc-list{grid-area:list} .bc > .bc-out{grid-area:out} .bc > .bc-setp{grid-area:set}
+  .bc-prev{background:linear-gradient(160deg,#4B6278,#1C232C);border-radius:var(--r-m);height:230px;flex:none;min-width:0;overflow:hidden;position:relative}
+  #ovprev{position:absolute;left:12px;top:12px;border:0;display:block;color-scheme:normal;transform-origin:0 0;width:360px;height:200px}
+  .bc-list .tr{grid-template-columns:32px minmax(0,1fr) auto}
+  .bc .kv{grid-template-columns:120px minmax(0,1fr)}
+  .bc .kv .row{flex-wrap:wrap;min-width:0}
+  /* узкое окно: «Вывод» — под списком оверлеев */
+  @media (max-width:1180px){
+    .bc{grid-template-columns:minmax(270px,1fr) minmax(300px,1.1fr);grid-template-rows:auto minmax(0,1fr);
+        grid-template-areas:"list set" "out set";overflow-y:auto}
+    .bc > .p{max-height:none}
+    .bc .seg button{padding:0 8px;letter-spacing:.05em}
+  }
+  /* редактор оверлеев: свой фрейм поверх содержимого, живёт всю сессию —
+     несохранённые правки не теряются при смене вкладки */
+  #edhost{position:fixed;left:0;right:0;top:48px;bottom:28px;z-index:5;background:var(--bg)}
+  #edhost[hidden]{display:none}
+  #edhost iframe{width:100%;height:100%;border:0;display:block}
+  .menu .row{flex-wrap:wrap}
+  .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .err{color:var(--hit-text)}
+  .note{color:var(--dim);line-height:1.5}
+  .pb input[type=checkbox]{width:16px;height:16px;margin:0;accent-color:var(--acc)}
+  /* кнопка «Сообщить об ошибке» в шапке — в стиле вкладок */
+  .top .bgr-hbtn{width:40px;height:auto;margin:7px 2px;border:0;border-radius:var(--r-s);background:none;color:var(--dim)}
+  .top .bgr-hbtn:hover{background:var(--raise);color:var(--acc)}
 </style>
 </head>
 <body>
-<header>
-  <a class="brand" href="/"><img src="/assets/logo.png" alt="iRC" class="logo"></a>
-  <div class="pill OFFLINE" id="mode">offline</div>
-  <div class="meta">
-    <span id="track">сим не найден</span>
-    <span id="clock"></span>
-    <span id="drivers"></span>
-  </div>
-  <div class="spacer"></div>
-  <div class="ver" id="ver"></div>
-</header>
-
-<div class="wrap">
-  <nav id="nav"></nav>
-  <main id="view"></main>
+<div class="shell">
+  <header class="top">
+    <a class="brand" href="/"><img src="/assets/logo.png" alt="iRC"></a>
+    <div id="tabs"></div>
+    <span class="grow"></span>
+    <button class="acct out" id="acct" title="Аккаунт irchamps.gg"></button>
+  </header>
+  <main class="content" id="view"></main>
+  <div id="edhost" hidden></div>
+  <footer class="status" id="status"></footer>
 </div>
-<div id="toasts"></div>
+<div class="menu" id="menu" hidden></div>
+<div class="gate" id="lock" hidden></div>
 
+<script src="/ui/irc.js"></script>
+<script src="/ui/rc.js"></script>
+<script src="/ui/deck.js"></script>
 <script>
 const $ = s => document.querySelector(s);
+const esc = irc.esc;
 let state = {modules: []};
 let tab = 'overview';
+let events = [];                         // журнал на «Обзоре»
+let acctOpen = false;
 
-const MODULES = {
-  racecontrol: {title:'Рейс-контрол',
-    desc:'Лента инцидентов, перемотка повтора к эпизоду, жёлтые и чёрные флаги.'},
-  broadcast:   {title:'Оверлеи трансляции',
-    desc:'Башня позиций, стартовая решётка, плашка комментаторов, пит-стопы.'},
-  rutp:        {title:'RUTP',
-    desc:'Ливреи Trading Paints. Внешний агент — iRC им только управляет.'},
-  telemetry:   {title:'Телеметрия',
-    desc:'Сбор покруговых сводок команды: топливо, пит, резина.'},
-};
+const TABS = [['overview','Обзор'], ['racecontrol','Рейс-контроль'], ['broadcast','Трансляция'],
+              ['pilot','Оверлей'], ['rutp','RUTP']];
+// «Трансляция»: режим (prep — подготовка, live — эфир) и вид подготовки
+// (set — настройки и предпросмотр, edit — оформление в редакторе). Режим
+// помнится между запусками окна.
+let bcMode = (() => { try{ return localStorage.getItem('irc.bcMode') || 'prep'; }catch(e){ return 'prep'; } })();
+let prepView = 'set';
+const TITLES = {racecontrol:'Рейс-контроль', broadcast:'Трансляция', rutp:'RUTP',
+                telemetry:'Телеметрия', pilot:'Оверлей'};
+const OUTCOME = {racing:'гоночный инцидент', penalty:'наказание в гонке', review:'изучить после гонки'};
+const PENALTY = {drive_through:'проезд', time_penalty:'штраф', dq:'дисквалификация', eol:'в конец колонны'};
 
-function toast(text, kind){
-  const el = document.createElement('div');
-  el.className = 'toast ' + (kind || '');
-  el.textContent = text;
-  $('#toasts').appendChild(el);
-  setTimeout(() => el.remove(), 4000);
+const mod = id => state.modules.find(x => x.id === id);
+const fmtTime = s => { s = Math.max(0, s|0);
+  return [s/3600|0, s%3600/60|0, s%60].map(v => String(v).padStart(2,'0')).join(':'); };
+const toast = irc.toast;
+const post = irc.post;
+
+/* ======================= шапка, состояние, аккаунт ======================= */
+
+function renderTop(st){
+  irc.setHTML($('#tabs'), TABS.map(([id, t], i) =>
+    `<button class="tab" data-tab="${id}" ${tab === id ? 'aria-current="page"' : ''}>${t}<kbd>${i+1}</kbd></button>`).join(''));
+  renderAccount(st);
+  renderStatus(st);
 }
 
-async function post(url, body){
-  try{
-    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
-                                body: JSON.stringify(body || {})});
-    const res = await r.json();
-    if(res && res.ok === false) toast(res.message || 'Не выполнено', 'err');
-    return res;
-  }catch(e){
-    toast('Нет связи с приложением', 'err');
-    return {ok:false};
+function renderAccount(st){
+  const l = st.license; if(!l) return;
+  const u = l.user || {};
+  const name = u.display_name || u.username || '';
+  const btn = $('#acct');
+  btn.classList.toggle('out', !l.linked);
+  irc.setHTML(btn, `<span class="ini">${l.linked && name ? esc(name.trim()[0].toUpperCase()) : '?'}</span>${
+    l.linked ? esc(name || 'Аккаунт') : l.login_pending ? 'Вход…' : 'Войти'}`);
+  const menu = $('#menu');
+  menu.hidden = !acctOpen;
+  if(!acctOpen) return;
+  let body;
+  if(l.linked){
+    body = `<div class="mi"><div style="font-weight:700;font-size:14px">${esc(name)}</div>
+        <div class="dim">${u.iracing_customer_id ? 'iRacing ' + esc(u.iracing_customer_id) + ' · irchamps.gg'
+          : 'iRacing не привязан — привяжите его в настройках сайта'}</div></div>
+      <div class="mi dim">Программа подключена к аккаунту. Решения маршала уходят в «Судейство».</div>
+      <div class="mi"><button class="k s full center" data-act="lic-unlink">Отвязать</button></div>`;
+  }else if(l.login_pending){
+    body = `<div class="mi dim">Войдите на сайте в открывшемся браузере — программа подключится сама.</div>
+      <div class="mi row"><button class="k s" data-act="lic-open">Открыть вход снова</button>
+        <button class="k s" data-act="lic-login">Заново</button></div>`;
+  }else{
+    body = `<div class="mi dim">${l.enforced ? 'Без подключения программа не работает.'
+        : 'Подключите программу к своему аккаунту — вход через Discord, как на сайте.'}</div>
+      <div class="mi"><button class="k s pri full center" data-act="lic-login">Войти через irchamps.gg</button></div>`;
+  }
+  irc.setHTML(menu, body);
+}
+
+function renderStatus(st){
+  const l = st.license || {};
+  const rc = mod('racecontrol'), bc = mod('broadcast');
+  const live = rc && rc.live;
+  const s = [];
+  s.push(l.linked ? '<span class="s ok">аккаунт irchamps.gg</span>'
+         : l.allowed === false ? '<span class="s er">нет входа</span>'
+         : '<span class="s wa">аккаунт не подключён</span>');
+  if(rc && rc.started){
+    if(live && live.stage) s.push(`<span class="s ok ell">этап · ${esc(live.stage.championship)} · ${esc(live.stage.title)}</span>`);
+    else s.push('<span class="s">этап не привязан</span>');
+    if(live && live.pending) s.push(`<span class="s wa">решений ждут отправки: ${live.pending}</span>`);
+    if(live && live.offline) s.push('<span class="s wa">нет связи с сайтом</span>');
+  }
+  if(bc && bc.started){
+    const air = st.overlays.filter(o => o.visible).length;
+    s.push(air ? `<span class="s er">в эфире: ${air}</span>` : '<span class="s">эфир пуст</span>');
+  }
+  s.push(irc.simStatus(st));                 // режим сима — справа от эфира
+  if(st.update && (st.update.state === 'core_ready' || st.update.state === 'bundle_ready')) s.push('<span class="s wa">обновление готово</span>');
+  s.push(`<span class="grow"></span><span>iRC v${esc(st.version || '')}</span>`);
+  irc.setHTML($('#status'), s.join(''));
+}
+
+/* ======================= вход: затемнение над содержимым ======================= */
+
+let licTimer = null;
+function licenseGate(l){
+  const p = l.pairing;
+  // имя может остаться от отозванной установки — показываем только при привязке
+  const linked = !!(l.linked && l.user && l.user.username);
+  let body;
+  if(p){
+    body = `<div class="code">${esc(p.code)}</div>
+      <div class="dim">Подтвердите код на сайте — программа включится сама. Ждём подтверждения…</div>
+      <div class="row"><button class="k grow" data-act="lic-open">Открыть сайт</button>
+        <button class="k" data-act="lic-code">Новый код</button></div>`;
+  }else if(l.reason === 'no_iracing' || l.reason === 'not_confirmed'){
+    body = `<div class="row"><button class="k pri grow" data-act="lic-open">Открыть настройки на сайте</button>
+      <button class="k" data-act="lic-check">Проверить снова</button></div>`;
+  }else if(l.reason === 'other_account'){
+    body = `<div class="dim">На сайте привязан аккаунт ${esc(l.user.iracing_customer_id || '')},
+      а в iRacing сейчас ${esc(l.sim_customer_id || '')}. Войдите в сим под своим аккаунтом.</div>
+      <button class="k s" data-act="lic-unlink">Отвязать эту установку</button>`;
+  }else if(l.reason === 'offline_expired'){
+    body = `<button class="k l pri full" data-act="lic-check">Проверить связь</button>`;
+  }else if(l.login_pending){
+    body = `<div class="dim">Войдите на сайте в открывшемся браузере — программа включится сама. Ждём входа…</div>
+      <div class="row"><button class="k grow" data-act="lic-open">Открыть вход снова</button>
+        <button class="k" data-act="lic-login">Начать заново</button></div>`;
+  }else{
+    body = `<button class="k l pri full" data-act="lic-login">Войти через irchamps.gg <kbd>Enter</kbd></button>
+      <div class="row"><span class="lbl">Нет браузера?</span>
+        <button class="k s" data-act="lic-code">Войти по коду с телефона</button>
+        ${linked ? '<span class="grow"></span><button class="k s" data-act="lic-unlink">Отвязать</button>' : ''}</div>`;
+  }
+  return `<div class="card"><div class="ph">Подключите программу</div><div class="pb">
+    <div class="dim">${esc(l.message || 'Нужен аккаунт на irchamps.gg с привязанным iRacing.')}
+      Без входа модули стоят, вкладки открываются.</div>
+    ${linked ? `<div class="lbl">аккаунт: ${esc(l.user.display_name || l.user.username)}</div>` : ''}
+    ${body}</div></div>`;
+}
+
+function ensureLicPoll(l){
+  const on = !!(l && l.pairing);
+  if(on && !licTimer){
+    licTimer = setInterval(async () => {
+      const r = await post('/api/license/pair/poll', {}, true);
+      if(r.status === 'approved'){ toast('Программа подключена', 'ok'); refresh(); }
+    }, 3000);
+  }else if(!on && licTimer){ clearInterval(licTimer); licTimer = null; }
+}
+
+// Без входа вкладки переключаются, а содержимое лежит под затемнением с
+// карточкой входа и не принимает ни кликов, ни клавиатуры (inert).
+function locked(){ const l = state.license; return !!(l && !l.allowed); }
+function renderLock(){
+  const el = $('#lock');
+  const lock = locked();
+  $('#view').inert = lock;
+  $('#edhost').inert = lock;
+  el.hidden = !lock;
+  if(!lock){ ensureLicPoll(null); return; }
+  irc.setHTML(el, licenseGate(state.license));
+  ensureLicPoll(state.license);
+}
+
+/* ======================= вкладки ======================= */
+
+// полукруг-шкала с цифрой внутри: v — доля заполнения 0..1
+function gauge(v, txt, on){
+  const R = 30, C = 2 * Math.PI * R, sw = .75, f = on ? Math.max(0, Math.min(1, v)) : 0;
+  return `<svg class="gauge${on ? '' : ' off'}" width="84" height="84" viewBox="-42 -42 84 84" aria-hidden="true">
+    <circle class="t" r="${R}" stroke-dasharray="${C * sw} ${C}" transform="rotate(135)"/>
+    ${f > 0 ? `<circle class="v" r="${R}" stroke-dasharray="${C * sw * f} ${C}" transform="rotate(135)"/>` : ''}
+    <text y="7" text-anchor="middle">${esc(txt)}</text></svg>`;
+}
+// frac — заполнение шкалы (доля из целого); нет доли — полная, пока модуль работает
+function modPanel(id, big, label, sub, frac){
+  const st = mod(id), on = !!(st && st.started);
+  return `<section class="p"><div class="ph">${TITLES[id]}<span class="r">${!st ? 'позже' : on ? 'работает' : 'выключен'}</span></div>
+    <div class="pb" style="flex:1;justify-content:space-between">
+      <div class="row" style="gap:14px">${gauge(frac ?? 1, on ? big : '—', on)}<div style="min-width:0">
+        <div class="cap ${st ? 'dim' : 'faint'}">${label}</div>
+        <div class="dim ell" style="margin-top:4px;height:20px">${!st ? 'модуль появится позже' : on ? esc(sub) : 'модуль выключен'}</div>
+        ${st && st.error ? `<div class="err">${esc(st.error)}</div>` : ''}</div></div>
+      <div class="row" style="justify-content:space-between">${irc.onoff('mod:' + id, on, !st)}${
+        st && tab !== id ? `<button class="k s" data-tab="${id}">Открыть</button>` : ''}</div></div></section>`;
+}
+
+function updateRow(){
+  const u = state.update || {};
+  const busy = u.state === 'checking';
+  const note = u.message || `Обновлений нет · версия ${state.version || ''} · проверка раз в час`;
+  return `<div class="row" style="border-top:1px solid var(--line);padding-top:12px">
+    <div class="grow"><div class="cap">Обновления${u.new_version ? ' · ' + esc(u.new_version) : ''}</div>
+      <div class="dim ell">${esc(note)}</div></div>
+    ${u.state === 'core_ready'
+      ? '<button class="k s pri" data-act="upinstall">Установить и перезапустить</button>'
+      : u.state === 'bundle_ready'
+      ? '<button class="k s pri" data-act="uprestart">Перезапустить</button>'
+      : `<button class="k s" data-act="upcheck" ${busy ? 'disabled' : ''}>${busy ? 'Проверяю…' : 'Проверить'}</button>`}</div>`;
+}
+
+const hhmm = at => { const d = new Date(String(at).replace(' ', 'T') + 'Z');
+  return isNaN(d) ? '' : d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}); };
+
+// одна строка журнала: [модуль, текст]
+function eventLine(e){
+  const p = e.payload || {};
+  switch(e.kind){
+    case 'app_start': return ['Программа', `запущена · v${p.version || ''}`];
+    case 'app_stop': return ['Программа', 'закрыта'];
+    case 'demo': return ['Программа', p.on ? 'демо-гонка включена' : 'демо-гонка выключена'];
+    case 'mode_change': return ['Сим', `${p.from || '—'} → ${p.to || '—'}`];
+    case 'module_toggled': return [TITLES[p.module] || p.module, p.enabled ? 'включён' : 'выключен'];
+    case 'incident_detected': return ['Рейс-контроль',
+      `#${p.car_number} ${p.driver_name || ''} ${p.kind === 'incident' || !p.kind ? '+' + (p.inc_delta || 0) + 'x' : 'вне трассы'} · круг ${p.lap ?? '—'}`];
+    case 'decision': return ['Рейс-контроль', `#${p.car || ''} ${p.driver_name || ''}: ${
+      p.outcome === 'penalty' ? (PENALTY[p.penalty] || 'наказание') + (p.seconds ? ' ' + p.seconds + ' с' : '')
+      : OUTCOME[p.outcome] || p.outcome}`];
+    case 'chat_command_sent': return ['Рейс-контроль', `в чат сима: ${p.text || ''}`];
+    case 'camera_changed': return ['Камера', p.camera || ''];
+    case 'rutp': return ['RUTP', p.text || ''];
+    default: return ['Программа', e.kind];
   }
 }
 
-function fmtTime(s){
-  s = Math.max(0, s|0);
-  return [s/3600|0, s%3600/60|0, s%60].map(v => String(v).padStart(2,'0')).join(':');
-}
-
-function renderHeader(st){
-  const m = $('#mode');
-  m.className = 'pill ' + st.mode;
-  m.textContent = st.mode;
-  $('#track').textContent = st.connected ? (st.track || 'сессия') : 'сим не найден';
-  $('#clock').textContent = st.connected ? fmtTime(st.session_time) : '';
-  $('#drivers').textContent = st.connected ? `${st.drivers} пилотов` : '';
-  $('#ver').textContent = 'v' + st.version;
-  let d = $('#demo-badge');
-  if (st.demo && !d) {
-    d = document.createElement('span');
-    d.id = 'demo-badge'; d.className = 'pill demo'; d.textContent = 'ДЕМО';
-    $('#mode').after(d);
-  } else if (!st.demo && d) { d.remove(); }
-}
-
-function renderNav(){
-  const items = Object.entries(MODULES).map(([id, m]) => {
-    const st = state.modules.find(x => x.id === id);
-    const known = !!st;
-    return `<div class="navitem ${tab===id?'active':''} ${st && st.started?'on':''}"
-                 data-tab="${id}">
-              <span class="dot"></span>${m.title}
-              ${known ? '' : '<span class="soon">позже</span>'}
-            </div>`;
-  }).join('');
-  $('#nav').innerHTML =
-    `<div class="navitem ${tab==='overview'?'active':''}" data-tab="overview">
-       <span class="dot" style="background:var(--accent)"></span>Обзор</div>
-     <div style="height:10px"></div>${items}`;
-}
-
-function moduleCard(id){
-  const meta = MODULES[id];
-  const st = state.modules.find(x => x.id === id);
-  if(!st){
-    return `<div class="card"><h3>${meta.title}</h3><p>${meta.desc}</p>
-            <div class="state off">Модуль ещё не реализован</div></div>`;
-  }
-  return `<div class="card">
-    <h3>${meta.title}</h3>
-    <p>${meta.desc}</p>
-    <div class="row">
-      <div class="sw ${st.started?'on':''}" data-toggle="${id}"></div>
-      <div class="state ${st.started?'':'off'}">
-        <b>${st.started ? 'включён' : 'выключен'}</b>
+function pageOverview(){
+  const rc = mod('racecontrol') || {}, bc = mod('broadcast') || {};
+  const live = rc.live || {};
+  const air = state.overlays.filter(o => o.visible);
+  const cols = '56px 128px 1fr';
+  return `<div class="pg" data-key="overview" style="grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr)">
+    ${modPanel('racecontrol', rc.incidents ?? 0, 'инцидентов',
+       live.stage ? `${live.stage.championship} · ${live.stage.title}` : 'этап не привязан')}
+    ${modPanel('broadcast', air.length, 'в эфире', air.map(o => o.title).join(' · ') || 'эфир пуст',
+       air.length / Math.max(1, (state.overlays || []).length || OV.length))}
+    ${(() => { const pv = ((mod('pilot') || {}).overlays || []).filter(o => o.visible);
+      return modPanel('pilot', pv.length, 'окон включено', pv.map(o => o.title).join(' · ') || 'окна выключены',
+        pv.length / Math.max(1, ((mod('pilot') || {}).overlays || []).length)); })()}
+    ${modPanel('telemetry', (mod('telemetry') || {}).laps ?? 0, 'кругов записано', (mod('telemetry') || {}).state || '',
+       ((mod('telemetry') || {}).laps || 0) > 0 ? 1 : 0)}
+    <section class="p" style="grid-column:1/3"><div class="ph">Действия</div><div class="pb">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="k full ${state.overlay_visible ? 'sel' : ''}" data-act="rc-overlay">Рейс-контроль поверх сима<kbd>${state.overlay_visible ? 'показан' : 'скрыт'}</kbd></button>
+        <button class="k full ${state.deck_visible ? 'sel' : ''}" data-act="deck">Пульт поверх сима<kbd>${state.deck_visible ? 'показан' : 'скрыт'}</kbd></button>
+        <button class="k full" data-act="editor">Редактор оверлеев<kbd>5</kbd></button>
       </div>
-      ${st.started && id==='racecontrol'
-        ? `<div class="spacer"></div><div class="state">инцидентов: ${st.incidents ?? 0}</div>` : ''}
-    </div>
-    ${st.error ? `<div class="err">${st.error}</div>` : ''}
+      ${updateRow()}</div></section>
+    <section class="p" style="grid-column:3/5"><div class="ph">Журнал<span class="r">последние ${events.length}</span></div>
+      <div class="tr h" style="grid-template-columns:${cols}"><span>Время</span><span>Модуль</span><span>Событие</span></div>
+      <div class="scroll" style="flex:1">${events.length ? events.map(e => { const [m, t] = eventLine(e);
+        return `<div class="tr" data-key="${e.id}" style="grid-template-columns:${cols}"><span class="num dim">${hhmm(e.at)}</span>
+          <span class="tag ell" style="color:var(--acc)">${esc(m)}</span><span class="ell">${esc(t)}</span></div>`; }).join('')
+        : '<div class="pb dim">Событий пока нет.</div>'}</div></section>
   </div>`;
 }
 
-function renderView(){
-  if(tab === 'overview'){
-    $('#view').innerHTML = `
-      <h1>Обзор</h1>
-      <div class="sub">Модули включаются независимо и делят один клиент iRacing.</div>
-      <div class="cards">${Object.keys(MODULES).map(moduleCard).join('')}</div>
-      <div class="demorow">
-        <div class="sw ${state.demo?'on':''}" data-demo="1"></div>
-        <div class="txt">
-          <b>Демо-данные</b>
-          <span>Синтетическая гонка на 20 машин: проверить оверлеи, когда сим не запущен.
-                Не сохраняется — после перезапуска программа снова читает сим.</span>
-        </div>
-      </div>`;
-    return;
-  }
-  const meta = MODULES[tab];
-  const st = state.modules.find(x => x.id === tab);
-  if(!st){
-    $('#view').innerHTML = `<h1>${meta.title}</h1>
-      <div class="sub">${meta.desc}</div>
-      <div class="empty">Модуль ещё не реализован — см. ТЗ, этапы работ.</div>`;
-    return;
-  }
-  if(tab === 'broadcast'){
-    const OV = [
-      ['tower','Башня позиций'], ['grid','Стартовая решётка'],
-      ['commentators','Плашка комментаторов'], ['delta','Дельта пилотов'],
-      ['pits','Пит-стопы'],
-    ];
-    const vis = {};
-    (st.overlays || []).forEach(o => vis[o.id] = o.visible);
-    const links = OV.map(([id,title]) => `
-      <div class="ovrow">
-        <div class="sw ${vis[id]?'on':''}" data-ov="${id}"></div>
-        <div class="ovname">${title}</div>
-        <div class="ovstate ${vis[id]?'live':''}">${vis[id]?'в эфире':'скрыт'}</div>
-        <div class="spacer"></div>
-        <button class="mini" onclick="copyUrl('${id}')" title="адрес для OBS на другой машине">адрес</button>
-        <button class="mini" onclick="window.open('/ov/${id}','_blank')" title="открыть страницу в браузере">в браузере</button>
-      </div>`).join('');
-
-    $('#view').innerHTML = `
-      <h1>${meta.title}</h1><div class="sub">${meta.desc}</div>
-      <div style="margin:4px 0 14px">
-        <a href="/editor" class="btn" style="display:inline-block;padding:9px 16px;border-radius:10px;
-           background:var(--accent);color:#fff;text-decoration:none;font-weight:600">
-           Редактор оверлеев</a>
-        <span class="state" style="margin-left:10px">размеры, форма ячеек, шрифты, логотипы — мышью на холсте</span>
-      </div>
-      <div class="cards">
-        <div class="card" style="grid-column:1/-1">
-          <h3>Модуль</h3>
-          <div class="row">
-            <div class="sw ${st.started?'on':''}" data-toggle="broadcast"></div>
-            <div class="state ${st.started?'':'off'}"><b>${st.started?'включён':'выключен'}</b></div>
-            ${st.started ? `<div class="spacer"></div><div class="state">машин в кадре: ${st.cars ?? 0}</div>` : ''}
-          </div>
-          <div style="height:14px"></div>
-          <div class="state">Оверлеи выводятся <b>окнами поверх iRacing</b> — их
-            двигают мышью, а в эфир они попадают через захват экрана в OBS.
-            Показом управляет пульт.</div>
-          <div style="height:12px"></div>
-          <div class="state">Если OBS на другой машине, те же оверлеи доступны
-            страницами — добавь адрес как <b>browser source</b>:</div>
-          <div style="height:8px"></div>
-          ${links}
-          <div style="height:16px"></div>
-          <h3>Пульт эфира</h3>
-          <div class="state">Управлять графикой можно тремя способами: пультом
-            поверх сима, окном на втором мониторе или с телефона.</div>
-          <div style="height:10px"></div>
-          <div class="ovrow">
-            <div class="sw ${st.deck_visible?'on':''}" data-deck="1"></div>
-            <div class="ovname">Пульт поверх сима</div>
-            <div class="ovstate ${st.deck_visible?'live':''}">${
-              st.deck_visible?'показан':'скрыт'}</div>
-            <div class="spacer"></div>
-            <button class="mini" onclick="copyUrl('','deck')">адрес</button>
-            <button class="mini" onclick="window.open('/deck','_blank')">в браузере</button>
-          </div>
-          <div style="height:12px"></div>
-          <div class="row">
-            <div class="sw ${state.allow_lan?'on':''}" onclick="toggleLan()"></div>
-            <div class="state">Доступ с телефона${state.lan_url
-              ? `: <code>${state.lan_url}deck</code>` : ' (выключен)'}</div>
-          </div>
-          <div class="state" style="margin-top:8px">Пульт в своей сети открыт
-            без пароля — включай в домашней сети, не в открытом Wi-Fi.</div>
-        </div>
-
-        <div class="card">
-          <h3>Башня позиций</h3>
-          <div class="kv">
-            <div>Заголовок</div><div><input id="b-title" placeholder="позиции"></div>
-            <div>Строк в кадре</div><div><input id="b-rows" type="number" min="3" max="40"></div>
-            <div>Гэп считать</div><div>
-              <select id="b-gap">
-                <option value="leader">до лидера</option>
-                <option value="ahead">до впереди идущего</option>
-              </select></div>
-            <div>Держать в кадре #</div><div><input id="b-focus" placeholder="номер"></div>
-            <div>Показывать питы</div><div><input id="b-pits" type="checkbox"></div>
-          </div>
-          <div style="height:12px"></div>
-          <button class="primary" onclick="saveBroadcast()">Применить</button>
-        </div>
-
-        <div class="card">
-          <h3>Стартовая решётка</h3>
-          <div class="kv">
-            <div>Заголовок</div><div><input id="g-title"></div>
-            <div>Строк</div><div><input id="g-rows" type="number" min="2" max="60"></div>
-          </div>
-          <div style="height:10px"></div>
-          <div class="state">Берётся из результатов квалификации. Если её не было —
-            покажет текущий порядок и honest-подпись об этом.</div>
-          <div style="height:12px"></div>
-          <button class="primary" onclick="saveBroadcast()">Применить</button>
-        </div>
-
-        <div class="card">
-          <h3>Плашка комментаторов</h3>
-          <div class="kv">
-            <div>Первый</div><div><input id="c-n1" placeholder="имя"></div>
-            <div>Роль</div><div><input id="c-r1" placeholder="комментатор"></div>
-            <div>Второй</div><div><input id="c-n2" placeholder="имя"></div>
-            <div>Роль</div><div><input id="c-r2" placeholder="эксперт"></div>
-            <div>Подпись справа</div><div><input id="c-cap" placeholder="в эфире"></div>
-          </div>
-          <div style="height:12px"></div>
-          <div class="row">
-            <button class="primary" onclick="showComm(true)">Показать</button>
-            <button onclick="showComm(false)">Скрыть</button>
-            <div class="spacer"></div>
-            <div class="state" id="c-state"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Дельта пилотов</h3>
-          <div class="kv">
-            <div>Первый №</div><div><input id="d-a" placeholder="номер или фамилия"></div>
-            <div>Второй №</div><div><input id="d-b" placeholder="номер или фамилия"></div>
-          </div>
-          <div style="height:10px"></div>
-          <div class="state">Разрыв считается по оценке сима (F2Time): на разорванном
-            поле точность хуже секунды.</div>
-          <div style="height:12px"></div>
-          <button class="primary" onclick="saveDelta()">Применить</button>
-        </div>
-
-        <div class="card">
-          <h3>Пит-стопы</h3>
-          <div class="kv">
-            <div>Заголовок</div><div><input id="p-title"></div>
-            <div>Строк</div><div><input id="p-rows" type="number" min="3" max="40"></div>
-            <div>Показывать всех</div><div><input id="p-all" type="checkbox"></div>
-          </div>
-          <div style="height:10px"></div>
-          <div class="state">Остановка считается по въезду в бокс: проезд по пит-лейну
-            насквозь не в счёт.</div>
-          <div style="height:12px"></div>
-          <button class="primary" onclick="saveBroadcast()">Применить</button>
-        </div>
-      </div>`;
-    loadBroadcast();
-    return;
-  }
-  if(tab === 'racecontrol'){
-    $('#view').innerHTML = `
-      <h1>${meta.title}</h1><div class="sub">${meta.desc}</div>
-      <div class="cards"><div class="card">
-        <h3>Состояние</h3>
-        <div class="kv">
-          <div>Модуль</div><div>${st.started ? 'включён' : 'выключен'}</div>
-          <div>Инцидентов в ленте</div><div>${st.incidents ?? 0}</div>
-          <div>Кругов под жёлтым</div><div>${st.pace_laps ?? '—'}</div>
-          <div>Оверлей поверх сима</div><div>${
-            st.overlay_visible ? 'показан' : 'скрыт'}</div>
-        </div>
-        <div style="height:14px"></div>
-        <div class="row">
-          <div class="sw ${st.started?'on':''}" data-toggle="racecontrol"></div>
-          <button class="primary" onclick="toggleRcOverlay(${st.overlay_visible ? 'false' : 'true'})">
-            ${st.overlay_visible ? 'Скрыть оверлей' : 'Показать оверлей'}</button>
-          <button onclick="window.open('/racecontrol','_blank')">Веб-панель</button>
-        </div>
-        <div class="state" style="margin-top:10px">
-          Оверлей — окно поверх iRacing. Веб-панель нужна для второго монитора
-          или стюарда на другой машине.</div>
-      </div></div>`;
-    return;
-  }
-  $('#view').innerHTML = `<h1>${meta.title}</h1><div class="sub">${meta.desc}</div>
-    <div class="cards">${moduleCard(tab)}</div>`;
+// модуль выключен — лента не нужна, только включатель; иначе всё рисует /ui/rc.js
+function pageRaceControl(){
+  const st = mod('racecontrol');
+  if(st && st.started) return irc.rc.html();
+  return `<div class="pg" data-key="racecontrol-off" style="grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)">
+    <section class="p"><div class="ph">Рейс-контроль<span class="r">${st ? 'выключен' : 'не найден'}</span></div><div class="pb">
+      <div class="row">${irc.onoff('mod:racecontrol', false, !st)}<span class="dim">Включите модуль — программа начнёт ловить инциденты.</span></div>
+      <div class="note">Лента инцидентов, повтор к эпизоду, решения маршала и флаги. Решения уходят в «Судейство» на irchamps.gg.</div>
+    </div></section></div>`;
 }
 
+const OV = [['tower','Башня позиций'], ['grid','Стартовая решётка'], ['commentators','Комментаторы'],
+            ['delta','Дельта пилотов'], ['pits','Пит-стопы'], ['weather','Трасса и погода'],
+            ['events','События гонки'], ['bestlap','Лучший круг']];
+let ovSel = 'tower';       // оверлей, чьи настройки открыты на «Трансляции»
+let bset = {};             // настройки оверлеев с сервера
+
+const fieldRow = (label, html) => `<span class="k-label">${label}</span>${html}`;
+const inp = (id, ph, type) => `<input class="inp${type ? '' : ' text'}" id="${id}" ${type ? `type="${type}"` : ''} placeholder="${ph || ''}">`;
+
+function ovSettings(id){
+  const apply = `<div class="row"><button class="k s pri" data-act="ov-save" data-v="${id}">Применить</button></div>`;
+  if(id === 'tower') return `<div class="kv">
+      ${fieldRow('Заголовок', inp('b-title', 'позиции'))}
+      ${fieldRow('Закреплено сверху', inp('b-top', '10', 'number'))}
+      ${fieldRow('Окно у камеры', inp('b-win', '8', 'number'))}
+      ${fieldRow('Гэп', irc.seg('bs:gap_mode', [['leader', 'до лидера'], ['ahead', 'до впереди']], bset.gap_mode || 'leader'))}
+      ${fieldRow('Держать в кадре', inp('b-focus', 'номер машины'))}
+      ${fieldRow('Пит-стопы', irc.onoff('bs:show_pits', bset.show_pits))}</div>
+    <div class="note">Если машин больше, чем помещается, под первыми местами идёт окно вокруг машины в кадре — оно едет за камерой iRacing. «Держать в кадре» закрепляет окно на выбранном номере.</div>${apply}`;
+  if(id === 'grid') return `<div class="kv">${fieldRow('Заголовок', inp('g-title'))}${fieldRow('Строк', inp('g-rows', '', 'number'))}</div>
+    <div class="note">Берётся из результатов квалификации. Если её не было — покажет текущий порядок и честно подпишет это.</div>${apply}`;
+  if(id === 'pits') return `<div class="kv">${fieldRow('Заголовок', inp('p-title'))}${fieldRow('Строк', inp('p-rows', '', 'number'))}
+      ${fieldRow('Всех пилотов', irc.onoff('bs:pits_show_all', bset.pits_show_all))}</div>
+    <div class="note">Остановка считается по въезду в бокс: проезд по пит-лейну насквозь не в счёт.</div>${apply}`;
+  if(id === 'commentators') return `<div class="kv">
+      ${fieldRow('Первый', inp('c-n1', 'имя'))}${fieldRow('Роль', inp('c-r1', 'комментатор'))}
+      ${fieldRow('Второй', inp('c-n2', 'имя'))}${fieldRow('Роль', inp('c-r2', 'эксперт'))}
+      ${fieldRow('Подпись справа', inp('c-cap', 'в эфире'))}</div>
+    <div class="row"><button class="k s air" data-act="comm-show">Показать</button><button class="k s" data-act="comm-hide">Скрыть</button></div>`;
+  if(id === 'delta') return `<div class="kv">${fieldRow('Первый', inp('d-a', 'номер или фамилия'))}${fieldRow('Второй', inp('d-b', 'номер или фамилия'))}</div>
+    <div class="note">Разрыв считается по оценке сима (F2Time): на разорванном поле точность хуже секунды.</div>
+    <div class="row"><button class="k s pri" data-act="delta-save">Применить</button></div>`;
+  if(id === 'weather') return `<div class="note">Условия — из сима: воздух, трасса, ветер, влажность, облачность, время суток. Ниже — смены лидера, жёлтые круги, пит-стопы и лучший круг гонки. Сила поля (SOF) — по iRating участников.</div>`;
+  if(id === 'events') return `<div class="note">Контакты (4x), потери контроля (2x), вылеты (1x) — из рейс-контроля, плюс жёлтый и зелёный флаг. Событие висит 40 секунд, флаг — две минуты; видно не больше четырёх.</div>`;
+  if(id === 'bestlap') return `<div class="note">Включите — и плашка будет сама выезжать на 8 секунд при каждом новом лучшем круге гонки. Без рекорда она не видна.</div>`;
+  return '<div class="dim">Внешний вид — в редакторе.</div>';
+}
+
+function bcModeBar(){
+  const air = (state.overlays || []).filter(o => o.visible).length;
+  return `<div class="row bc-mode">
+    <span class="seg-big"><button data-bcmode="prep" aria-pressed="${bcMode === 'prep'}">Подготовка</button>
+      <button class="onair" data-bcmode="live" aria-pressed="${bcMode === 'live'}"><span class="dot"></span>Эфир</button></span>
+    ${bcMode === 'prep' ? `<span class="seg">${[['set', 'Настройки'], ['edit', 'Оформление']].map(([k, t]) =>
+      `<button data-prepview="${k}" aria-pressed="${prepView === k}">${t}</button>`).join('')}</span>` : ''}
+    <span class="dim ell">${bcMode === 'live' ? 'во время гонки: эфир, камеры, пилоты, макросы'
+                                              : 'до гонки: настройки и оформление оверлеев'}</span>
+    <span class="grow"></span>${demoBar('broadcast')}${air ? `<span class="tag pill" style="flex:none;color:#fff;background:#C81E1E;box-shadow:0 0 12px rgba(200,30,30,.6)">● в эфире: ${air}</span>`
+      : '<span class="dim" style="flex:none">эфир пуст</span>'}</div>`;
+}
+
+/* ---- демо: прошлая гонка, встроенная в программу; своё у трансляции и у пилота ---- */
+function demoBar(scope){
+  if(!(mod(scope) || {}).started) return '';            // выключенный модуль демо не запустит
+  const d = (mod(scope) || {}).demo || {};
+  return `<button class="k s ${d.on ? 'sel' : ''}" data-act="demo-${scope}" ${d.loading ? 'disabled' : ''}
+    style="flex:none">${d.on ? 'Демо включено' : 'Демо выключено'}</button>`;
+}
+
+function pageBroadcast(){
+  const st = mod('broadcast');
+  if(!st) return `<div class="pg" data-key="broadcast"><section class="p"><div class="ph">Трансляция</div><div class="pb dim">Модуль не найден.</div></section></div>`;
+  let body;
+  // выключенный модуль не отвечает: пульт и редактор вместо «404» просят включить трансляцию
+  if(!st.started && (bcMode === 'live' || prepView === 'edit'))
+    body = `<section class="p" data-key="bc-off"><div class="ph">Трансляция выключена</div><div class="pb">
+      <div class="row">${irc.onoff('mod:broadcast', false)}<span class="dim grow">Включите модуль трансляции —
+        откроются ${bcMode === 'live' ? 'пульт эфира' : 'оформление оверлеев'} и демо.</span></div></div></section>`;
+  else if(bcMode === 'live') body = pageDeck();
+  else if(prepView === 'edit') body = '<div data-key="bc-edit"></div>';     // сам редактор — во фрейме #edhost поверх
+  else body = pagePrep(st);
+  return `<div class="pg bcw" data-key="bc-${bcMode}-${prepView}">${bcModeBar()}${body}</div>`;
+}
+
+function pagePrep(st){
+  const on = !!st.started;
+  const ovs = state.overlays.length ? state.overlays : OV.map(([id, title]) => ({id, title, visible: false}));
+  const o = ovs.find(x => x.id === ovSel) || ovs[0];
+  const air = ovs.filter(x => x.visible).length;
+  return `<div class="bc" data-key="broadcast">
+    <section class="p fit bc-list">${irc.ph(on ? '' : 'модуль выключен', 'Оверлеи', [['в эфире', on ? air : '']])}
+      <div class="pb" style="padding-bottom:8px"><div class="row">${irc.onoff('mod:broadcast', on)}
+        <span class="dim ell">${on ? `машин в кадре: ${st.cars ?? 0}` : 'включите, чтобы выводить графику'}</span></div></div>
+      <div class="scroll" style="flex:1">${ovs.map((x, i) => `<div class="tr click ${x.id === o.id ? 'cur' : ''}" data-ovsel="${x.id}">
+        <span class="bar" style="background:${x.visible ? 'var(--air)' : x.id === o.id ? 'var(--acc)' : 'transparent'}"></span>
+        <span class="num faint">F${i + 1}</span><span class="nm">${esc(x.title)}</span>
+        <button class="k s center ${x.visible ? 'air' : ''}" data-dk="air" data-v="${x.id}" style="width:104px" ${on ? '' : 'disabled'}>${
+          x.visible ? '● в эфире' : 'В эфир'}</button></div>`).join('')}</div>
+      <div class="pb" style="padding-top:10px"><button class="k full" data-dk="clear" ${on && air ? '' : 'disabled'}>Убрать всё<kbd>Esc</kbd></button></div></section>
+    <section class="p fit bc-out">${irc.ph('', 'Вывод')}<div class="pb">
+      <div class="dim">окна поверх сима · захват экрана в OBS</div>
+      <div class="kv">
+        <span class="k-label">OBS на другом ПК</span><span class="row"><button class="k s" data-copy="${o.id}" title="адрес страницы для browser source">Адрес</button>
+          <button class="k s" data-open="/ov/${o.id}">В браузере</button></span>
+        <span class="k-label">Пульт поверх сима</span><span>${irc.onoff('deck', state.deck_visible, !on)}</span>
+        <span class="k-label">С телефона</span><span>${irc.onoff('lan', state.allow_lan)}</span>
+        ${state.allow_lan && state.lan_url ? `<span class="k-label">Адрес пульта</span><span class="num dim ell" title="${esc(state.lan_url)}deck">${esc(state.lan_url)}deck</span>` : ''}
+        <i class="kv-sep"></i>
+        <span class="k-label" style="grid-column:1/-1" title="закрывает экран, пока сим перематывает повтор (пульт «Эфир» → «Повторы»)">Шторка повтора</span>
+        <div class="fx-pick" style="grid-column:1/-1">${[['A', 'Шеврон'], ['B', 'Ламели'], ['C', 'Диафрагма'], ['D', 'Скос']].map(([v, t]) =>
+          `<button class="k s ${(bset.replay_fx || 'D') === v ? 'sel' : ''}" data-bsfx="${v}">${t}</button>`).join('')}</div>
+        <span class="k-label">Метка «Повтор»</span><span>${irc.onoff('bs:replay_bug', bset.replay_bug !== false)}</span>
+        <span class="k-label">Шторка в OBS</span><span class="row"><button class="k s" data-copy="replayfx" title="browser source 1920×1080 поверх всего">Адрес шторки</button>
+          <button class="k s" data-copy="replaybug" title="browser source, маленькая метка в углу">Адрес метки</button></span>
+      </div>
+      <div class="note">Пульт в своей сети открыт без пароля — доступ с телефона включайте в домашней сети, не в открытом Wi-Fi. Переключение — после перезапуска программы.</div>
+    </div></section>
+    <section class="p fit bc-setp" data-key="ovset-${o.id}">${irc.ph(o.visible ? 'в эфире' : 'не в эфире', o.title)}
+      <div class="pb scroll">${ovSettings(o.id)}
+        <div class="row"><button class="k s" data-act="open-editor" data-v="${o.id}">Оформление</button></div>
+        <div class="lbl">Превью</div>
+        <div class="bc-prev">${on
+          ? `<iframe id="ovprev" src="/ov/${o.id}?preview=1" scrolling="no" title="предпросмотр"></iframe>`
+          : '<div class="pb" style="color:#C9D3DD">Предпросмотр появится, когда модуль включён.</div>'}</div></div></section>
+  </div>`;
+}
+
+// модуль трансляции выключен — пульту нечем управлять; иначе всё рисует /ui/deck.js
+function pageDeck(){
+  const st = mod('broadcast');
+  if(st && st.started) return irc.deck.html();
+  return `<div class="pg" data-key="deck-off" style="grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)">
+    <section class="p"><div class="ph">Пульт эфира<span class="r">модуль трансляции выключен</span></div><div class="pb">
+      <div class="row">${irc.onoff('mod:broadcast', false, !st)}<span class="dim">Включите трансляцию — пульт управляет её графикой и камерами.</span></div></div></section></div>`;
+}
+
+// низ колонки макросов во вкладке «Пульт»: где ещё открыть этот пульт
+function deckSide(){
+  return `<div class="lbl" style="margin-top:8px">Пульт в других местах</div>
+    <div class="kv" style="grid-template-columns:92px 1fr">
+      <span class="k-label">Поверх сима</span><span>${irc.onoff('deck', state.deck_visible)}</span>
+      <span class="k-label">Окно</span><span class="row"><button class="k s" data-open="/deck">Открыть</button>
+        <button class="k s" data-copy="" data-direct="deck">Адрес</button></span>
+      <span class="k-label">Телефон</span><span>${irc.onoff('lan', state.allow_lan)}</span></div>
+    ${state.allow_lan && state.lan_url ? `<div class="dim ell">${esc(state.lan_url)}deck</div>` : ''}`;
+}
+
+function showEditor(on, ov){
+  const host = $('#edhost');
+  host.hidden = !on;
+  // модуль выключили — фрейм убираем: после включения он загрузится заново, а не останется с «404»
+  if(!on){ if(!(mod('broadcast') || {}).started) host.innerHTML = ''; return; }
+  let f = host.querySelector('iframe');
+  if(!f){
+    f = document.createElement('iframe');
+    f.title = 'Редактор оверлеев';
+    f.src = '/editor?embed=1' + (ov ? '&ov=' + encodeURIComponent(ov) : '');
+    host.appendChild(f);
+  }else if(ov){
+    f.contentWindow.postMessage({irc: 'ov', id: ov}, location.origin);
+  }
+  f.focus();
+}
+// Оформление — режим «Подготовка», вид «Оформление»: фрейм редактора встаёт
+// поверх области под переключателем режимов
+function placeEditor(ov){
+  const on = tab === 'broadcast' && bcMode === 'prep' && prepView === 'edit' && !!(mod('broadcast') || {}).started;
+  showEditor(on, ov);
+  const bar = on && document.querySelector('.bc-mode');
+  if(bar) $('#edhost').style.top = Math.round(bar.getBoundingClientRect().bottom + 8) + 'px';
+}
+function setBcMode(mode, view){
+  bcMode = mode;
+  if(view) prepView = view;
+  try{ localStorage.setItem('irc.bcMode', mode); }catch(e){}
+  renderView();
+}
+function openEditor(ov){
+  if(tab !== 'broadcast'){ tab = 'broadcast'; renderTop(state); }
+  bcMode = 'prep'; prepView = 'edit';
+  try{ localStorage.setItem('irc.bcMode', 'prep'); }catch(e){}
+  renderView();
+  placeEditor(ov);
+}
+// из редактора: цифры 1–6 переключают вкладки окна
+window.addEventListener('message', e => {
+  if(e.origin !== location.origin || !e.data || e.data.irc !== 'tab') return;
+  const t = TABS[e.data.n - 1];
+  if(t) go(t[0]);
+});
+
+const LIVERY = {ok: ['загружена', 'var(--on)'], none: ['нет на TP', 'var(--dim)'],
+                self: ['своя', '#7FA4FF'], wait: ['ждёт', 'var(--acc)']};
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.id === 'rutp-path'){ const b = $('[data-act="rutp-save"]'); if(b) b.click(); }
+});
+function pageRutp(){
+  const st = mod('rutp');
+  if(!st) return `<div class="pg" data-key="rutp"><section class="p"><div class="ph">RUTP</div><div class="pb dim">Модуль не найден.</div></section></div>`;
+  const on = !!st.started;
+  const drivers = st.drivers || [], events = st.events || [];
+  const hm = s => new Date(s * 1000).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+  const legacy = on && (st.legacy_running || st.legacy_autostart);
+  const live = on && st.in_session;
+  const none = drivers.filter(d => d.state === 'none').length;
+  const stTxt = !on ? 'выключен' : st.legacy_running ? 'ждёт' : 'работает';
+  const stCol = !on ? 'var(--faint)' : st.legacy_running ? 'var(--warn)' : 'var(--on)';
+  return `<div class="pg" data-key="rutp" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);align-items:start">
+    <section class="p fit">${irc.ph(on ? (st.activated ? 'установка активирована' : 'не активирована') : 'модуль выключен', 'Ливреи Trading Paints', [['статус', stTxt, stCol]])}<div class="pb">
+      <div class="ring-row">${gauge(drivers.length ? st.liveries / drivers.length : 0, live ? st.liveries : '—', live)}<div style="min-width:0">
+        <div class="cap dim">ливрей в сессии</div>
+        <div class="dim ell" style="margin-top:4px">${live ? `из ${drivers.length} пилотов${none ? ` · ${none} нет на Trading Paints` : ''}`
+          : on ? esc(st.state) : 'включите — ливреи будут загружаться сами'}</div></div></div>
+      <div class="row" style="flex-wrap:wrap">${irc.onoff('mod:rutp', on)}<span class="grow"></span>
+        <button class="k s" data-act="rutp-reload" ${live ? '' : 'disabled'} title="убрать загруженное в этой сессии и загрузить заново">Загрузить заново</button>
+        <button class="k s" data-act="rutp-paint">Открыть папку paint</button></div>
+      ${legacy ? `<div style="border:1px solid var(--warn);border-radius:var(--r-m);padding:12px;display:flex;flex-direction:column;gap:8px">
+        <div class="tag" style="color:var(--warn)">■ ${st.legacy_running ? 'запущен отдельный RUTP' : 'отдельный RUTP в автозапуске'}</div>
+        <div class="dim">${st.legacy_running ? 'Пока он работает, встроенный ждёт: два загрузчика в одной папке paint стирают файлы друг друга. '
+          : ''}Отдельная программа больше не нужна — ливреи загружает iRC.</div>
+        <div><button class="k warn" data-act="rutp-legacy" style="white-space:normal;height:auto;min-height:40px;text-align:left">Закрыть отдельный RUTP и убрать из автозапуска</button></div></div>` : ''}
+    </div></section>
+    <section class="p fit">${irc.ph('', 'Настройки')}<div class="pb"><div class="kv">
+      <span class="k-label">Папка paint</span><input class="inp" id="rutp-path" value="${esc(st.paint_folder || '')}"
+        placeholder="C:\\Users\\…\\Documents\\iRacing\\paint" title="путь можно вставить или набрать и нажать Enter">
+      <span class="k-label"></span><span class="row" style="flex-wrap:wrap"><button class="k s pri" data-act="rutp-save">Сохранить путь</button><button class="k s" data-act="rutp-pick">Выбрать…</button>${
+        st.paint_suggest ? `<button class="k s pri" data-act="rutp-suggest" data-v="${esc(st.paint_suggest)}" title="${esc(st.paint_suggest)}">Найдена — использовать</button>` : ''}</span>
+      <span class="k-label">Сервер</span><span class="dim ell">${esc(st.backend || '')}</span></div>
+      <div class="note">Пилоты сессии → сервер RUTP → файлы в папку paint. Чужие ливреи после сессии убираются,
+        своя скачивается заново в начале каждой сессии и остаётся. В демо-гонке ливреи не загружаются.</div></div></section>
+    <section class="p fit">${irc.ph('', 'Пилоты', [['в сессии', drivers.length || '']])}
+      <div class="tr h" style="grid-template-columns:48px minmax(0,1fr) 112px"><span>№</span><span>Пилот</span><span class="ar">Ливрея</span></div>
+      <div class="scroll" style="flex:1">${drivers.length ? drivers.map(d => { const [t, c] = LIVERY[d.state] || ['—', 'var(--faint)'];
+        return `<div class="tr" style="grid-template-columns:48px minmax(0,1fr) 112px"><span>${irc.plate(d.number)}</span>
+          <span class="nm">${esc(d.name)}</span><span class="ar">${irc.pill(t, c)}</span></div>`; }).join('')
+        : `<div class="pb dim">${on ? 'Пилоты появятся, когда в iRacing откроется сессия.' : 'Модуль выключен.'}</div>`}</div></section>
+    <section class="p fit">${irc.ph('', 'События')}
+      <div class="tr h" style="grid-template-columns:56px minmax(0,1fr)"><span>Время</span><span>Событие</span></div>
+      <div class="scroll" style="flex:1">${events.length ? events.map(e => `<div class="tr" style="grid-template-columns:56px minmax(0,1fr)">
+        <span class="num dim">${hm(e.at)}</span><span class="ell">${esc(e.text)}</span></div>`).join('')
+        : '<div class="pb dim">Событий пока нет.</div>'}</div></section>
+  </div>`;
+}
+
+// Телеметрия своей машины для разбора сетапа: вкладки в шапке нет, открывается с «Обзора»
+let telemLaps = {session: '', rows: []};
+async function loadTelemLaps(){
+  const r = await irc.get('/api/telemetry/laps?since=0');
+  if(r && r.ok){ telemLaps = {session: r.session, rows: r.laps.slice(-15).reverse()}; if(tab === 'telemetry') renderView(); }
+}
+setInterval(() => { if(tab === 'telemetry') loadTelemLaps(); }, 3000);
+
+// Сбор данных для радара: на каком продольном расстоянии iRacing включает и
+// выключает «машина рядом». Сводка — медиана и разброс, м от центра до центра.
+let radarProbe = {};
+const radarLine = (label, s) => s ? `<span class="k-label">${label}</span><span class="num dim">медиана ${s.median} м · ${s.min}–${s.max} м · ${s.n} раз</span>` : '';
+async function loadRadarProbe(){
+  const r = await irc.get('/api/telemetry/radar');
+  if(r && r.ok !== false){ radarProbe = r; if(tab === 'telemetry' && !locked()) renderView(); }
+}
+setInterval(() => { if(tab === 'telemetry') loadRadarProbe(); }, 2000);
+
+function pageTelemetry(){
+  const st = mod('telemetry');
+  if(!st) return `<div class="pg" data-key="telemetry"><section class="p"><div class="ph">Телеметрия</div><div class="pb dim">Модуль не найден.</div></section></div>`;
+  const on = !!st.started;
+  const cols = '48px 48px 88px 64px minmax(0,1fr)';
+  const flag = {pit_in: 'заезд', pit_out: 'выезд', off_track: 'вне трассы', incident: 'инцидент', yellow: 'жёлтый'};
+  // сим подключён, а кадры не идут — это поломка, её надо видеть сразу
+  const stale = on && st.connected && (st.last_frame_age_s == null || st.last_frame_age_s > 3);
+  const drop = st.dropped || {};
+  const ty = st.tyres;
+  const avg = a => { const v = (a || []).filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+  const corner = c => {
+    const tr = ty && ty.tires && ty.tires[c] || {}, w = avg(ty && ty.wear_pct && ty.wear_pct[c]);
+    const temps = (tr.temp || []).map(x => x == null ? '—' : x.toFixed(0)).join(' · ');
+    return `<div style="border:1px solid var(--line);border-radius:var(--r-m);padding:8px 10px;min-width:0">
+      <div class="row" style="justify-content:space-between"><span class="cap dim">${c}</span>
+        <span class="num" style="font-size:18px;color:${w == null ? 'var(--faint)' : w < 60 ? 'var(--warn)' : 'var(--fg)'}">${w == null ? '—' : w.toFixed(0) + '%'}</span></div>
+      <div class="num dim ell" title="температура в боксе: внутр. · центр · внеш.">${temps || '—'} °C</div></div>`;
+  };
+  const g = ty && ty.g || {};
+  const tyrePanel = `<section class="p" style="grid-column:1/-1"><div class="ph">Резина и нагрузка<span class="r">${ty ? `круг ${ty.lap} · ${ty.laps} кр. на комплекте` : 'после первого круга'}</span></div><div class="pb">
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">${['LF', 'RF', 'LR', 'RR'].map(corner).join('')}</div>
+    <div class="row dim" style="flex-wrap:wrap;gap:16px"><span>трек ${ty && ty.track_temp != null ? ty.track_temp.toFixed(1) + '°' : '—'}</span>
+      <span>бок. ср. ${g.lat_mean != null ? g.lat_mean.toFixed(2) + ' g' : '—'}</span><span>торм. макс ${g.brake_max != null ? g.brake_max.toFixed(2) + ' g' : '—'}</span>
+      <span>разгон макс ${g.accel_max != null ? g.accel_max.toFixed(2) + ' g' : '—'}</span><span>работа ${g.work_kj_kg != null ? g.work_kj_kg.toFixed(1) + ' кДж/кг' : '—'}</span></div>
+    <div class="note">Износ и температуры iRacing обновляет только в боксе — здесь последний замер. По ходу езды температура
+      поверхности есть только в .ibt: она попадает в круги после пересчёта из .ibt. Всё пишется в сводку каждого круга.</div></div></section>`;
+  return `<div class="pg" data-key="telemetry" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);overflow:auto">
+    <section class="p"><div class="ph">Телеметрия своей машины<span class="r">${on ? 'работает' : 'выключен'}</span></div><div class="pb">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div><div class="big" style="color:${on && st.session ? 'var(--fg)' : 'var(--faint)'}">${on && st.session ? st.laps : '—'}</div>
+          <div class="cap dim" style="margin-top:8px">кругов в сессии</div></div>
+        <div style="text-align:right;min-width:0"><div class="dim ell">${on ? esc(st.state) : 'включите — круги начнут записываться'}</div>
+          ${on && st.setup_id ? `<div class="tag" style="margin-top:4px">сетап ${st.setup_id}</div>` : ''}</div></div>
+      <div class="row">${irc.onoff('mod:telemetry', on)}<span class="grow"></span>
+        <button class="k s" data-act="telem-open">Открыть папку</button></div>
+      ${stale ? `<div style="border:1px solid var(--air);border-radius:var(--r-m);padding:10px 12px" class="tag" title="${esc(st.last_error || '')}">
+        <span style="color:var(--hit-text)">■ кадры не приходят</span></div>` : ''}
+      ${on && st.last_error ? `<div class="dim ell" title="${esc(st.last_error)}">ошибок: ${st.errors} · ${esc(st.last_error)}</div>` : ''}
+      </div></section>
+    <section class="p"><div class="ph">Настройки</div><div class="pb"><div class="kv">
+      <span class="k-label">Запись .ibt</span><span class="row">${irc.onoff('telem-ibt', st.auto_ibt, !on)}
+        <span class="dim">${st.ibt_logging ? 'iRacing пишет сейчас' : 'включать при выезде'}</span></span>
+      <span class="k-label">Сессия</span><span class="dim ell" title="${esc(st.session || '')}">${esc(st.session || '—')}</span>
+      <span class="k-label">Отправка</span><span class="dim ell" title="снимки сетапа и сводки кругов, .ibt остаётся здесь">на irchamps.gg · ${esc(st.upload_state || 'ждёт данных')}</span>
+      <span class="k-label">Из .ibt</span><span class="row"><span class="dim ell grow">${esc(st.ibt_state || 'после сессии — сам')}</span>
+        <button class="k s" data-act="telem-reprocess" ${on ? '' : 'disabled'}>Пересчитать</button></span>
+      <span class="k-label">Кадры</span><span class="num dim ell" title="отброшено: повтор ${drop.not_live || 0}, вне трассы ${drop.not_on_track || 0}, без сессии ${drop.no_session || 0}, повтор кадра ${drop.same_tick || 0}, ошибки ${drop.error || 0}">${st.frames_used || 0} / ${st.frames_in || 0}</span>
+      <span class="k-label">Каналов в симе</span><span class="num">${st.vars || '—'}${st.missing_live && st.missing_live.length ? ` <span class="dim">· только в .ibt: ${esc(st.missing_live.join(', '))}</span>` : ''}</span>
+      <span class="k-label">Папка</span><span class="dim ell" title="${esc(st.root || '')}">${esc(st.root || '')}</span>
+      <span class="k-label">Радар: сбор</span><span class="row">${irc.onoff('telem-radar', radarProbe.on, !on)}
+        <span class="dim ell">${radarProbe.on ? `переключений ${radarProbe.flips || 0} · замеров ${radarProbe.samples || 0}` : 'пишет, когда iRacing видит машину рядом'}</span></span>
+      ${radarLine('Включается', radarProbe.turn_on_m)}${radarLine('Выключается', radarProbe.turn_off_m)}</div>
+      <div class="note">Запись .ibt — полная телеметрия iRacing 360 Гц: iRC включает её при выезде из бокса
+        и выключает в боксе, а файл запоминает за сессией.</div></div></section>
+    ${tyrePanel}
+    <section class="p" style="grid-column:1/-1;min-height:240px"><div class="ph">Последние круги<span class="r">${esc(telemLaps.session || '')}</span></div>
+      <div class="tr h" style="grid-template-columns:${cols}"><span class="ar">Круг</span><span class="ar">Сетап</span><span class="ar">Время</span><span class="ar">Топл.</span><span>Отметки</span></div>
+      <div class="scroll" style="flex:1">${telemLaps.rows.length ? telemLaps.rows.map(r => `<div class="tr" style="grid-template-columns:${cols}">
+        <span class="num ar">${r.lap}</span><span class="num ar dim">${r.setup_id ?? '—'}</span>
+        <span class="num ar" ${r.valid ? '' : 'style="color:var(--faint)"'}>${r.lap_time != null ? r.lap_time.toFixed(3) : '—'}</span>
+        <span class="num ar dim">${r.fuel_used != null ? r.fuel_used.toFixed(2) : '—'}</span>
+        <span class="tag" style="color:${r.valid ? 'var(--on)' : 'var(--warn)'}">${r.valid ? 'чистый' : r.flags.map(f => flag[f] || f).join(' · ')}</span></div>`).join('')
+        : `<div class="pb dim">${on ? 'Круги появятся после первого пересечения линии.' : 'Модуль выключен.'}</div>`}</div></section>
+  </div>`;
+}
+
+/* ---------- Пилот: окна поверх сима у самого пилота ---------- */
+let pl = null;                       // /api/pilot/state
+async function loadPilot(){
+  const r = await irc.get('/api/pilot/state');
+  if(r && r.overlays){ pl = r; if(tab === 'pilot') renderView(); }
+}
+setInterval(() => { if(tab === 'pilot') loadPilot(); }, 4000);
+const PL_NOTE = {standings: 'места, отрывы, круги; первые места и окно вокруг вас',
+                 relative: 'кто рядом на трассе: впереди и сзади, по секундам',
+                 radar: 'две полосы по бокам — машина слева или справа',
+                 wind: 'откуда дует относительно машины',
+                 engine: 'вода и масло; красное и мигание — по лампам iRacing',
+                 setups: 'сектора и круг по каждому сетапу сессии'};
+function plSetups(){
+  const S = pl.settings.setups || {}, list = pl.setups || [];
+  const f3 = v => v == null ? '—' : (v >= 60 ? `${Math.floor(v / 60)}:${(v % 60).toFixed(3).padStart(6, '0')}` : v.toFixed(3));
+  return plNum('setups', 'scale', 'Размер', 60, 160, '%')
+    + `<span class="k-label">Столбцов</span>${irc.seg('pls:setups.max', [['2', '2'], ['3', '3'], ['4', '4'], ['5', '5'], ['0', 'все']], String(S.max ?? 3))}`
+    + `<span class="k-label" title="среднее — по чистым кругам и секторам (без пит-лейна и инцидентов)">Показывать</span>${irc.seg('pls:setups.mode', [['best', 'лучшее'], ['avg', 'среднее']], S.mode || 'best')}`
+    + plFlag('setups', 'tyres', 'Резина').replace('<span class="k-label">', '<span class="k-label" title="по замерам на последнем пит-стопе: у каждого колеса три части — левая, центр, правая; сверху износ % за круг, снизу температура, над колесом горячее давление">')
+    + plFlag('setups', 'delta', 'Отставание') + plFlag('setups', 'theo', 'Теор. круг') + plFlag('setups', 'laps', 'Круги на сетапе')
+    + `<span class="k-label" style="grid-column:1/-1;margin-top:4px">Сетапы сессии · закрепить</span>
+      <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px">${list.length ? list.map(x => `<div class="row" style="background:var(--bg2,#16181e);border-radius:5px;padding:5px 10px;gap:8px">
+        <span class="ell grow">${esc(x.name)} <span class="dim">· ${x.edit ? 'изм. ' + x.edit : 'файл'}</span>${x.cur ? ' <span style="color:var(--acc)">· сейчас</span>' : ''}</span>
+        <span class="dim num" style="font-size:11px">${x.laps} кр · ${f3(x.lap)}</span>
+        <button class="k s ${x.id === S.pin ? 'pri' : ''}" data-plpin="${esc(x.id)}">${x.id === S.pin ? 'закреплён' : 'закрепить'}</button></div>`).join('')
+        : '<span class="dim">Пока ни одного — появятся, когда выедете на трассу.</span>'}</div>`;
+}
+function plNum(id, k, label, min, max, unit){
+  const v = pl.settings[id][k];
+  return `<span class="k-label">${label}</span><span class="row"><input type="range" min="${min}" max="${max}" value="${v}"
+    data-pl="${id}.${k}" style="flex:1;accent-color:var(--acc)"><span class="num" style="min-width:64px;text-align:right;white-space:nowrap">${v}${unit || ''}</span></span>`;
+}
+function plFlag(id, k, label){
+  return `<span class="k-label">${label}</span>${irc.onoff(`plf:${id}.${k}`, !!pl.settings[id][k])}`;
+}
+// шрифты таблицы: место, фамилия, цифры (iR, PIT, времена, отрыв) — каждый на выбор
+const PL_FONTS = {
+  pos: ['Место', [['exo', 'Exo 2'], ['bahn', 'Bahnschrift'], ['segv', 'Segoe UI Var'], ['segoe', 'Segoe UI']]],
+  name: ['Фамилии', [['exo', 'Exo 2'], ['bahn', 'Bahnschrift'], ['segv', 'Segoe UI Var'], ['franklin', 'Franklin'], ['segoe', 'Segoe UI']]],
+  num: ['Цифры', [['mono', 'Roboto Mono'], ['bahn', 'Bahnschrift'], ['segv', 'Segoe UI Var']]],
+};
+function plFonts(id){
+  const s = pl.settings[id] || {};
+  return `<i class="kv-sep"></i><span class="k-label lab1">Шрифты</span><span class="row rest" style="flex-wrap:wrap;gap:6px 14px">${
+    Object.entries(PL_FONTS).map(([k, [label, opts]]) => `<span class="row" style="gap:6px;flex:none">
+      <span class="dim" style="font-size:12px">${label}</span>${irc.seg(`pls:${id}.font_${k}`, opts, s['font_' + k] || opts[0][0])}</span>`).join('')}</span>`;
+}
+function plHead(id){
+  return `<span class="k-label">Шапка</span>${irc.seg(`pls:${id}.head`, [['top', 'сверху'], ['bottom', 'снизу'], ['off', 'нет']], pl.settings[id].head || 'top')}`;
+}
+function plCols(id, key = 'cols', label = 'Колонки'){
+  const on = pl.settings[id][key] || {};
+  return `<i class="kv-sep"></i><span class="k-label lab1">${label}</span><span class="row rest" style="flex-wrap:wrap">${pl.columns
+    .filter(([k]) => k in on).map(([k, n]) => `<button class="k s ${on[k] ? 'pri' : ''}" data-plcol="${id}.${key}.${k}">${esc(n)}</button>`).join('')}</span>`;
+}
+// закрепить и угол привязки — у каждого окна
+const ANCH = [['tl', '↖'], ['tc', '↑'], ['tr', '↗'], ['bl', '↙'], ['bc', '↓'], ['br', '↘']];
+function plPlace(id){
+  const s = pl.settings[id] || {};
+  return plFlag(id, 'lock', 'Закрепить')
+    + `<span class="k-label" title="угол окна, который стоит на месте, когда окно меняет размер">Привязка</span>${irc.seg(`pls:${id}.anchor`, ANCH, s.anchor || 'tl')}`;
+}
+// wide — блок во всю ширину страницы, настройки в несколько колонок (Standings, Relative)
+function plSection(id, body, wide){
+  // фон окна: 0 — полностью прозрачный, 100 — сплошной; цифры и надписи не меняются
+  body = plPlace(id) + (pl.settings[id] && 'bg' in pl.settings[id] ? plNum(id, 'bg', 'Фон', 0, 100, '%') : '') + body;
+  const o = pl.overlays.find(x => x.id === id);
+  return `<section class="p"${wide ? ' style="grid-column:1/-1"' : ''}><div class="ph">${esc(o.title)}<span class="r">${o.visible ? 'показывается' : 'скрыт'}</span></div><div class="pb">
+    <div class="row">${irc.onoff('pl:' + id, o.visible)}<span class="dim ell grow">${PL_NOTE[id]}</span>
+      <button class="k s" data-plreset="${id}">Сбросить</button></div><div class="kv${wide ? ' wide' : ''}">${body}</div></div></section>`;
+}
+function pagePilot(){
+  const st = mod('pilot');
+  if(!st) return `<div class="pg" data-key="pilot"><section class="p"><div class="ph">Оверлей</div><div class="pb dim">Модуль не найден — обновите iRC.</div></section></div>`;
+  const on = !!st.started;
+  const head = `<section class="p" style="grid-column:1/-1"><div class="ph">Оверлей<span class="r">${on ? 'работает' : 'выключен'}</span></div><div class="pb">
+    <div class="row">${irc.onoff('mod:pilot', on)}<span class="dim grow">Окна поверх iRacing на этом компьютере: Standings, Relative, радар, ветер, двигатель, сетапы.
+      Показываются, когда вы в машине; iRacing — в оконном режиме без рамки. Окна таскаются мышью, место запоминается.</span></div>
+    ${on ? `<div class="row" style="margin-top:10px"><span class="grow"></span>${demoBar('pilot')}</div>` : ''}</div></section>`;
+  if(!on || !pl) return `<div class="pg" data-key="pilot" style="grid-template-rows:auto">${head}</div>`;
+  const S = pl.settings, learned = pl.learned || {}, car = pl.car || '';
+  const mine = learned[car];
+  return `<div class="pg" data-key="pilot" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr));grid-auto-rows:min-content;overflow:auto">${head}
+    ${plSection('standings', plNum('standings', 'scale', 'Размер', 60, 160, '%') + plNum('standings', 'top', 'Первые места', 0, 10)
+      + plNum('standings', 'around', 'Вокруг меня, ±', 1, 10) + plFlag('standings', 'replay', 'Показывать в повторе') + plHead('standings') + plFlag('standings', 'inc', 'Инциденты в шапке') + plFlag('standings', 'flag_wave', 'Волна флага')
+      + `<span class="k-label">Таблица</span>${irc.seg('pls:standings.by_class', [['0', 'общий зачёт'], ['1', 'по классам']], S.standings.by_class ? '1' : '0')}`
+      + plCols('standings', 'cols', 'Колонки · гонка') + plCols('standings', 'cols_q', 'Практика, квала') + plFonts('standings'), true)}
+    ${plSection('relative', plNum('relative', 'scale', 'Размер', 60, 160, '%') + plNum('relative', 'around', 'Впереди и сзади', 1, 6) + plFlag('relative', 'replay', 'Показывать в повторе') + plFlag('relative', 'flag_wave', 'Волна флага') + plHead('relative') + plCols('relative') + plFonts('relative'), true)}
+    <section class="p" style="grid-column:1/-1"><div class="ph">Кто говорит в рацию<span class="r">${{relative: 'в Relative', standings: 'в Standings', both: 'в обоих', off: 'выключено'}[(S.voice || {}).where] || ''}</span></div><div class="pb"><div class="kv wide">
+      <span class="k-label">Где показывать</span>${irc.seg('pls:voice.where', [['relative', 'Relative'], ['standings', 'Standings'], ['both', 'оба'], ['off', 'выкл']], (S.voice || {}).where || 'relative')}
+      ${plFlag('voice', 'strip', 'Строка «Говорит»')}${plFlag('voice', 'freq', 'Частота')}</div>
+      <div class="note">У говорящего вместо рейтинга, времени и отрыва — динамик и звуковая волна; в начале речи по строке
+        проходит мягкий оранжевый отсвет. Если говорящего нет в строках окна — под таблицей появляется строка «Говорит»
+        с номером, фамилией и частотой (@DRIVERS, команда). iRacing сообщает одного говорящего за раз.</div></div></section>
+    ${plSection('radar', plNum('radar', 'spread', 'Между полосами', 120, 1200, ' px') + plNum('radar', 'len', 'Длина полос', 40, 400, ' px')
+      + plNum('radar', 'width', 'Толщина полос', 6, 60, ' px') + plNum('radar', 'bend', 'Изгиб', -60, 60, ' px')
+      + `<span class="k-label">Цвет индикатора</span><span class="row"><input type="color" value="${esc(S.radar.color)}" data-pl="radar.color"
+          style="width:48px;height:28px;border:1px solid var(--line2);border-radius:var(--r-s);background:none;padding:0"></span>`
+      + plNum('radar', 'alpha', 'Непрозрачность', 10, 100, '%') + plNum('radar', 'car_cm', 'Длина машины', 300, 600, ' см') + plFlag('radar', 'test', 'Индикатор всегда'), true)}
+    ${plSection('wind', plNum('wind', 'scale', 'Размер', 40, 160, '%')
+      + `<span class="k-label">Вид</span>${irc.seg('pls:wind.style', [['ring', 'кольцо'], ['card', 'карточка']], S.wind.style || 'ring')}`, true)}
+    ${plSection('engine', plNum('engine', 'scale', 'Размер', 60, 160, '%')
+      + `<span class="k-label">Вид</span>${irc.seg('pls:engine.style', [['rings', 'полукруги'], ['card', 'карточка']], S.engine.style || 'rings')}`
+      + `<span class="k-label">Единицы</span>${irc.seg('pls:engine.units', [['C', '°C'], ['F', '°F']], S.engine.units)}`
+      + plFlag('engine', 'flash', 'Мигать при лампе')
+      + ((S.engine.style || 'rings') === 'card' ? plFlag('engine', 'bars', 'Шкалы') : '') + plFlag('engine', 'rpm', 'Обороты') + plFlag('engine', 'press', 'Давление масла')
+      + `<span class="k-label">Запомнено</span><span class="row"><span class="dim ell grow" title="${esc(Object.entries(learned).map(([c, v]) => `${c}: вода ${v.water ?? '—'}, масло ${v.oil ?? '—'}`).join('\n'))}">${
+          Object.keys(learned).length ? `${Object.keys(learned).length} машин${mine ? ` · ваша: вода ${mine.water ?? '—'}°, масло ${mine.oil ?? '—'}°` : ''}` : 'пока ни одной'}</span>
+          ${Object.keys(learned).length ? '<button class="k s" data-plforget="1">Забыть</button>' : ''}</span>`, true)}
+    ${plSection('setups', plSetups(), true)}
+  </div>`;
+}
+let plTimer = null;
+async function plSave(id, set, quiet){
+  const r = await post('/api/pilot/settings', {id, set}, quiet);
+  if(r && r.ok){ pl = r; if(!quiet) renderView(); }
+}
+document.addEventListener('input', e => {
+  const el = e.target.closest('[data-pl]');
+  if(!el || !pl) return;
+  const [id, k] = el.dataset.pl.split('.');
+  const v = el.type === 'color' ? el.value : +el.value;
+  if(el.type === 'range'){ const lab = el.nextElementSibling; if(lab) lab.textContent = lab.textContent.replace(/^-?\d+/, v); }
+  pl.settings[id][k] = v;
+  clearTimeout(plTimer);
+  plTimer = setTimeout(() => plSave(id, {[k]: v}, true), 150);
+});
 document.addEventListener('click', async e => {
-  const nav = e.target.closest('.navitem');
-  if(nav){ tab = nav.dataset.tab; renderNav(); renderView(); return; }
-  const dk = e.target.closest('.sw[data-deck]');
-  if(dk){
-    const on = dk.classList.contains('on');
-    await post('/api/broadcast/deck', {visible: !on});
-    toast(!on ? 'Пульт показан' : 'Пульт скрыт');
-    setTimeout(refresh, 300);
+  const c = e.target.closest('[data-plcol]');
+  if(c && pl){
+    const [id, key, k] = c.dataset.plcol.split('.');
+    await plSave(id, {[key]: {[k]: !pl.settings[id][key][k]}});
     return;
   }
-  const dem = e.target.closest('.sw[data-demo]');
-  if(dem){
-    const on = dem.classList.contains('on');
-    await post('/api/demo', {on: !on});
-    toast(!on ? 'Демо-данные включены' : 'Демо-данные выключены');
+  const pn = e.target.closest('[data-plpin]');
+  if(pn && pl){ const id = pn.dataset.plpin; await plSave('setups', {pin: pl.settings.setups.pin === id ? '' : id}); return; }
+  const rs = e.target.closest('[data-plreset]');
+  if(rs){ const r = await post('/api/pilot/settings', {id: rs.dataset.plreset, reset: true}); if(r.ok){ pl = r; renderView(); toast('Настройки сброшены', 'ok'); } return; }
+  if(e.target.closest('[data-plforget]')){
+    const r = await post('/api/pilot/settings', {id: 'engine', forget_learned: true});
+    if(r.ok){ pl = r; renderView(); toast('Пороги машин забыты', 'ok'); }
+  }
+});
+irc.on('seg', (key, v) => {
+  if(!key.startsWith('pls:')) return;
+  const [id, k] = key.slice(4).split('.');
+  plSave(id, {[k]: k === 'by_class' ? v === '1' : v});
+});
+
+const PAGES = {overview: pageOverview, racecontrol: pageRaceControl, broadcast: pageBroadcast,
+               rutp: pageRutp, telemetry: pageTelemetry, pilot: pagePilot};
+// ссылка вида /#rutp открывает сразу нужную вкладку
+{ const h = location.hash.slice(1); if(PAGES[h]){ tab = h; if(h === 'pilot') setTimeout(loadPilot, 300); } }
+
+// Предпросмотр оверлея: страница оверлея фиксированной ширины (башня — 360 px).
+// Подгоняем её размер под содержимое и уменьшаем, если места меньше, — чтобы
+// оверлей был виден целиком, а не обрезан. Правило — отдельным <style>:
+// атрибут style у фрейма перезаписала бы перерисовка вкладки.
+const fitStyle = document.head.appendChild(document.createElement('style'));
+function fitPreview(){
+  const f = document.getElementById('ovprev');
+  if(!f) return;
+  let w = 360, h = 200;
+  try{
+    // размер самого оверлея — как в редакторе: у его блока, а не у страницы
+    const ov = f.contentWindow && f.contentWindow.irOverlay;
+    const el = ov && ov.frame ? ov.frame() : null;
+    if(el){
+      const r = el.getBoundingClientRect();
+      w = Math.max(40, Math.ceil(r.right) + 12); h = Math.max(40, Math.ceil(r.bottom) + 12);
+    }else if(f.contentDocument && f.contentDocument.body){
+      const b = f.contentDocument.body;
+      w = Math.max(40, b.scrollWidth); h = Math.max(40, b.scrollHeight);
+    }
+  }catch(e){}
+  const box = f.parentElement;
+  const s = Math.min(1, (box.clientWidth - 24) / w, (box.clientHeight - 24) / h);
+  const css = `#ovprev{width:${w}px;height:${h}px;transform:scale(${Math.max(0.2, s).toFixed(3)})}`;
+  if(fitStyle.textContent !== css) fitStyle.textContent = css;
+}
+setInterval(() => { if(tab === 'broadcast') fitPreview(); }, 500);
+window.addEventListener('resize', fitPreview);
+
+let shownTab = '', shownOv = '';
+function renderView(){
+  irc.setHTML($('#view'), PAGES[tab]());
+  // поля настроек оверлея заполняем, когда они появились; дальше их не трогаем
+  const fresh = tab === 'broadcast' && (shownTab !== 'broadcast' || shownOv !== ovSel);
+  shownTab = tab; shownOv = ovSel;
+  if(fresh) loadBroadcast();
+  placeEditor();
+}
+window.addEventListener('resize', () => placeEditor());
+
+function go(id){
+  if(!PAGES[id] || id === tab) return;
+  tab = id; acctOpen = false;
+  renderTop(state); renderView();
+  if(id === 'overview') loadEvents();
+  if(id === 'telemetry') loadTelemLaps();
+  if(id === 'pilot') loadPilot();
+}
+
+/* ======================= действия ======================= */
+
+// «вкл | выкл»: кнопка переключается сразу, сервер подтверждает следующим состоянием
+irc.on('onoff', async (key, on, btn) => {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+  let r;
+  if(key.startsWith('mod:')){
+    const id = key.slice(4);
+    r = await post('/api/modules/set', {id, enabled: on});
+    if(r.ok) toast(`${TITLES[id] || id}: ${on ? 'включён' : 'выключен'}`, on ? 'ok' : '');
+    if(id === 'pilot') setTimeout(loadPilot, 300);
+  }else if(key.startsWith('ov:')){
+    const id = key.slice(3);
+    r = await post('/api/broadcast/visibility', {id, visible: on});
+    if(r.overlays) toast(`${(r.overlays.find(o => o.id === id) || {}).title || id}: ${on ? 'в эфире' : 'убран'}`, on ? 'er' : '');
+  }else if(key.startsWith('pl:')){
+    const id = key.slice(3);
+    r = await post('/api/pilot/visibility', {id, visible: on});
+    if(r.ok){ pl = r; toast(`${(r.overlays.find(o => o.id === id) || {}).title || id}: ${on ? 'включён' : 'выключен'}`, on ? 'ok' : ''); }
+  }else if(key.startsWith('plf:')){
+    const [id, k] = key.slice(4).split('.');
+    await plSave(id, {[k]: on ? 1 : 0});
+    return;
+  }else if(key === 'deck'){
+    r = await post('/api/broadcast/deck', {visible: on});
+    if(r.ok !== false) toast(on ? 'Пульт показан' : 'Пульт скрыт');
+  }else if(key === 'lan'){
+    r = await post('/api/lan', {allow: on});
+    if(r.ok) toast(on ? 'Доступ с телефона включён — перезапустите iRC' : 'Доступ с телефона выключен — нужен перезапуск', 'wa');
+  }else if(key === 'telem-radar'){
+    r = await post('/api/telemetry/radar', {on});
+    if(r.ok){ radarProbe = r; toast(on ? 'Радар: сбор включён — езжайте в трафике' : 'Радар: сбор выключен', 'ok'); }
+    else toast(r.message || 'Не включилось', 'er');
+  }else if(key === 'telem-ibt'){
+    r = await post('/api/telemetry/settings', {auto_ibt: on});
+    if(r.ok) toast(on ? 'Запись .ibt будет включаться при выезде' : 'Запись .ibt не включается', 'ok');
+  }else if(key.startsWith('bs:')){
+    await saveSetting(key.slice(3), on);
+    return;
+  }
+  refresh();
+});
+
+const LIC = {login: '/api/license/login/start', code: '/api/license/pair/start',
+             open: '/api/license/open', check: '/api/license/check', unlink: '/api/license/unlink'};
+
+document.addEventListener('click', async e => {
+  const t = e.target;
+  if(t.closest('#acct')){ acctOpen = !acctOpen; renderAccount(state); return; }
+  if(acctOpen && !t.closest('#menu')){ acctOpen = false; renderAccount(state); }
+  const tb = t.closest('[data-tab]');
+  if(tb){ go(tb.dataset.tab); return; }
+  const bm = t.closest('[data-bcmode]');
+  if(bm){ setBcMode(bm.dataset.bcmode); return; }
+  const pv = t.closest('[data-prepview]');
+  if(pv){ setBcMode('prep', pv.dataset.prepview); return; }
+  const os = t.closest('[data-ovsel]');
+  if(os && !t.closest('[data-dk]')){ if(ovSel !== os.dataset.ovsel){ ovSel = os.dataset.ovsel; renderView(); } return; }
+  const op = t.closest('[data-open]');
+  if(op){ if(op.dataset.open) window.open(op.dataset.open, '_blank'); return; }
+  const cp = t.closest('[data-copy]');
+  if(cp){ copyUrl(cp.dataset.copy, cp.dataset.direct); return; }
+  const a = t.closest('[data-act]');
+  if(!a || a.disabled) return;
+  const act = a.dataset.act;
+  let r;
+  if(act.startsWith('lic-')){
+    const what = act.slice(4);
+    a.disabled = true;
+    // браузер открывает сама программа: окно панели не знает входа на сайт
+    await post(LIC[what], {});
+    a.disabled = false;
+    if(what === 'unlink') acctOpen = false;
     refresh();
     return;
   }
-  const ov = e.target.closest('.sw[data-ov]');
-  if(ov){
-    const id = ov.dataset.ov;
-    const on = ov.classList.contains('on');
-    ov.classList.add('busy');
-    const r = await post('/api/broadcast/visibility', {id, visible: !on});
-    if(r.overlays) toast(`${MODULES.broadcast ? '' : ''}${
-      (r.overlays.find(o=>o.id===id)||{}).title}: ${!on ? 'в эфире' : 'убран'}`);
-    ov.classList.remove('busy');
+  if(act.startsWith('rutp-')){
+    const what = act.slice(5);
+    a.disabled = true;
+    r = what === 'suggest' ? await post('/api/rutp/folder', {path: a.dataset.v})
+      : what === 'save' ? await post('/api/rutp/folder', {path: ($('#rutp-path') || {}).value || ''})
+                           : await post('/api/rutp/' + what, {}, what === 'pick');
+    a.disabled = false;
+    if(r.ok !== false){
+      if(what === 'pick' || what === 'suggest' || what === 'save') toast('Папка paint выбрана', 'ok');
+      else if(what === 'reload') toast('Ливреи загрузятся заново', 'ok');
+      else if(what === 'legacy') toast('Отдельный RUTP закрыт — ливреи загружает iRC', 'ok');
+    }
     refresh();
     return;
   }
-  const sw = e.target.closest('.sw');
-  if(sw && sw.dataset.toggle){
-    const id = sw.dataset.toggle;
-    const on = sw.classList.contains('on');
-    sw.classList.add('busy');
-    const r = await post('/api/modules/set', {id, enabled: !on});
-    if(r.ok) toast(`${MODULES[id].title}: ${!on ? 'включён' : 'выключен'}`);
-    sw.classList.remove('busy');
-    refresh();
+  switch(act){
+    case 'uprestart':
+      a.disabled = true;
+      r = await post('/api/update/restart', {});
+      if(r.message) toast(r.message, r.ok === false ? 'er' : 'ok');
+      if(r.ok === false) a.disabled = false;
+      return;
+    case 'upcheck': case 'upinstall':
+      a.disabled = true;
+      r = await post(act === 'upinstall' ? '/api/update/install' : '/api/update/check', {});
+      if(r.message) toast(r.message, r.ok === false ? 'er' : '');
+      if(act === 'upcheck') refresh();
+      return;
+    case 'demo-broadcast': case 'demo-pilot': {
+      const scope = act.slice(5), on = !((mod(scope) || {}).demo || {}).on;
+      a.disabled = true;
+      r = await post(`/api/${scope}/demo`, {on});
+      if(r.ok !== false) toast(on ? 'Демо включено' : 'Демо выключено');
+      for(const ms of [300, 1500]) setTimeout(refresh, ms);
+      return;
+    }
+    case 'deck':
+      r = await post('/api/broadcast/deck', {visible: !state.deck_visible});
+      if(r.ok !== false) toast(!state.deck_visible ? 'Пульт показан' : 'Пульт скрыт');
+      setTimeout(refresh, 300);
+      return;
+    case 'rc-overlay':
+      r = await post('/api/racecontrol/overlay', {visible: !state.overlay_visible});
+      if(r.ok) toast(!state.overlay_visible ? 'Рейс-контроль поверх сима' : 'Окно поверх сима скрыто');
+      setTimeout(refresh, 400);
+      return;
+    case 'rc-web': window.open('/racecontrol', '_blank'); return;
+    case 'telem-open': post('/api/telemetry/open', {}); return;
+    case 'telem-reprocess':
+      r = await post('/api/telemetry/reprocess', {});
+      if(r.ok) toast('Пересчёт из .ibt запущен — займёт до минуты', 'ok');
+      return;
+    case 'editor': openEditor(); return;
+    case 'open-editor': openEditor(a.dataset.v); return;
+    case 'ov-save': saveOv(a.dataset.v); return;
+    case 'delta-save': saveDelta(); return;
+    case 'comm-show': showComm(true); return;
+    case 'comm-hide': showComm(false); return;
   }
 });
 
-async function toggleRcOverlay(visible){
-  const r = await post('/api/racecontrol/overlay', {visible});
-  if(r.ok) toast(visible ? 'Оверлей показан' : 'Оверлей скрыт');
-  setTimeout(refresh, 400);
-}
+irc.keys(Object.assign({
+  'Escape': () => { if(!acctOpen) return false; acctOpen = false; renderAccount(state); },
+  'Enter': () => { if(!locked() || state.license.pairing || state.license.login_pending) return false;
+    const b = $('#lock [data-act="lic-login"]'); if(b) b.click(); },
+}, Object.fromEntries(TABS.map(([id], i) => [String(i + 1), () => {
+  if(tab === 'broadcast' && bcMode === 'live' && !locked()) return false;    // в «Эфире» цифры — камеры
+  go(id);
+}]))));
 
-async function toggleLan(){
-  const r = await post('/api/lan', {allow: !state.allow_lan});
-  if(r.ok) toast(r.allow_lan
-    ? 'Доступ с телефона включён — перезапусти iRC, чтобы применилось'
-    : 'Доступ с телефона выключен — нужен перезапуск');
-  refresh();
-}
+/* ======================= «Трансляция»: настройки ======================= */
 
 async function loadBroadcast(){
-  try{
-    const s = await (await fetch('/api/broadcast/settings')).json();
-    // поле, которое человек правит, настройками с сервера не затираем
-    const set = (id, v) => { const el = $(id); if(el && !(el.id in edited)) el.value = v ?? ''; };
-    const chk = (id, v) => { const el = $(id); if(el && !(el.id in edited)) el.checked = !!v; };
-    set('#b-title', s.tower_title); set('#b-rows', s.tower_rows);
-    set('#b-gap', s.gap_mode); set('#b-focus', s.focus_car);
-    chk('#b-pits', s.show_pits);
-    set('#g-title', s.grid_title); set('#g-rows', s.grid_rows);
-    set('#p-title', s.pits_title); set('#p-rows', s.pits_rows);
-    chk('#p-all', s.pits_show_all);
-    const pair = s.delta_pair || [];
-    set('#d-a', pair[0]); set('#d-b', pair[1]);
-    const c = s.commentators || [];
-    set('#c-n1', c[0] && c[0].name); set('#c-r1', c[0] && c[0].role);
-    set('#c-n2', c[1] && c[1].name); set('#c-r2', c[1] && c[1].role);
-    set('#c-cap', s.comm_caption);
-    const st = $('#c-state');
-    if(st) st.textContent = s.comm_visible ? 'в эфире' : 'скрыта';
-  }catch(e){}
+  const s = await irc.get('/api/broadcast/settings');
+  if(!s) return;
+  bset = s;
+  const set = (id, v) => { const el = $(id); if(el) el.value = v ?? ''; };
+  set('#b-title', s.tower_title); set('#b-top', s.tower_top); set('#b-win', s.tower_window); set('#b-focus', s.focus_car);
+  set('#g-title', s.grid_title); set('#g-rows', s.grid_rows);
+  set('#p-title', s.pits_title); set('#p-rows', s.pits_rows);
+  const pair = s.delta_pair || [];
+  set('#d-a', pair[0]); set('#d-b', pair[1]);
+  const c = s.commentators || [];
+  set('#c-n1', c[0] && c[0].name); set('#c-r1', c[0] && c[0].role);
+  set('#c-n2', c[1] && c[1].name); set('#c-r2', c[1] && c[1].role);
+  set('#c-cap', s.comm_caption);
+  if(tab === 'broadcast' && !locked()) renderView();      // вкл/выкл и выбор — из настроек
 }
 
-async function saveBroadcast(){
-  const num = (id, def) => Number($(id) && $(id).value) || def;
-  const r = await post('/api/broadcast/settings', {
-    tower_title: $('#b-title').value,
-    tower_rows: num('#b-rows', 12),
-    gap_mode: $('#b-gap').value,
-    focus_car: $('#b-focus').value.replace('#','').trim(),
-    show_pits: $('#b-pits').checked,
-    grid_title: $('#g-title').value,
-    grid_rows: num('#g-rows', 24),
-    pits_title: $('#p-title').value,
-    pits_rows: num('#p-rows', 12),
-    pits_show_all: $('#p-all').checked,
-  });
-  if(r.ok){ forgetEdits(); toast('Настройки применены'); }
+// поля формы выбранного оверлея: id поля -> [ключ настройки, число по умолчанию]
+const FIELDS = {
+  tower: [['b-title', 'tower_title'], ['b-top', 'tower_top', 10], ['b-win', 'tower_window', 8], ['b-focus', 'focus_car']],
+  grid: [['g-title', 'grid_title'], ['g-rows', 'grid_rows', 24]],
+  pits: [['p-title', 'pits_title'], ['p-rows', 'pits_rows', 12]],
+};
+async function saveOv(id){
+  const body = {};
+  for(const [el, k, def] of FIELDS[id] || []){
+    const v = ($('#' + el) || {}).value || '';
+    body[k] = def ? (Number(v) || def) : k === 'focus_car' ? v.replace('#', '').trim() : v;
+  }
+  const r = await post('/api/broadcast/settings', body);
+  if(r.ok) toast('Настройки применены', 'ok');
 }
+// выбор и вкл/выкл в настройках применяются сразу
+async function saveSetting(k, v){
+  bset[k] = v; renderView();
+  const r = await post('/api/broadcast/settings', {[k]: v});
+  if(r.ok) toast('Применено', 'ok');
+}
+irc.on('seg', (key, v) => { if(key.startsWith('bs:')) saveSetting(key.slice(3), v); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-bsfx]'); if(b) saveSetting('replay_fx', b.dataset.bsfx); });
 
 async function saveDelta(){
   // поле принимает и номер, и фамилию — номер вытаскиваем через общий поиск
   const resolve = async v => {
     v = (v || '').trim();
     if(!v) return '';
-    const list = await (await fetch('/api/drivers?q=' + encodeURIComponent(v))).json();
+    const list = await irc.get('/api/drivers?q=' + encodeURIComponent(v)) || [];
     return list.length ? list[0].car_number : v.replace('#','');
   };
-  const pair = [await resolve($('#d-a').value), await resolve($('#d-b').value)]
-    .filter(Boolean);
+  const pair = [await resolve($('#d-a').value), await resolve($('#d-b').value)].filter(Boolean);
   const r = await post('/api/broadcast/settings', {delta_pair: pair});
-  if(r.ok) toast(pair.length === 2 ? `Пара: #${pair[0]} и #${pair[1]}`
-                                   : 'Укажи обоих пилотов', pair.length===2?'':'err');
-  if(r.ok) forgetEdits();
+  if(r.ok) toast(pair.length === 2 ? `Пара: #${pair[0]} и #${pair[1]}` : 'Укажите обоих пилотов',
+                 pair.length === 2 ? 'ok' : 'er');
   loadBroadcast();
 }
 
@@ -551,72 +1084,66 @@ async function showComm(visible){
     {name: $('#c-n1').value, role: $('#c-r1').value},
     {name: $('#c-n2').value, role: $('#c-r2').value},
   ];
-  const r = await post('/api/broadcast/commentators',
-                       {people, visible, caption: $('#c-cap').value});
-  if(r.ok){
-    forgetEdits();
-    toast(visible ? 'Плашка в эфире' : 'Плашка скрыта');
-    const st = $('#c-state'); if(st) st.textContent = visible ? 'в эфире' : 'скрыта';
-  }else toast(r.message || 'Не получилось');
+  const r = await post('/api/broadcast/commentators', {people, visible, caption: $('#c-cap').value});
+  if(r.ok){ toast(visible ? 'Плашка в эфире' : 'Плашка скрыта', visible ? 'er' : ''); refresh(); }
 }
 
 function copyUrl(name, direct){
   const url = direct ? (state.lan_url || location.origin + '/') + direct
                      : location.origin + '/ov/' + name;
   navigator.clipboard.writeText(url)
-    .then(() => toast('Скопировано: ' + url))
-    .catch(() => toast('Не удалось скопировать', 'err'));
+    .then(() => toast('Скопировано: ' + url, 'ok'))
+    .catch(() => toast('Не удалось скопировать', 'er'));
 }
 
-// Панель перерисовывает вкладку при каждом обновлении состояния — раз в
-// секунду. Поле пересоздавалось прямо под курсором, а загрузка настроек тут
-// же вписывала в него сохранённое (пустое) значение: набрать ничего было
-// нельзя. Теперь набранное запоминается и возвращается после перерисовки,
-// а пока курсор в текстовом поле, вкладку не трогаем вовсе.
-const edited = {};                       // id поля -> то, что человек набрал
-document.addEventListener('input', e => {
-  const el = e.target;
-  if(!el.id || !el.closest || !el.closest('#view')) return;
-  if(!['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
-  edited[el.id] = el.type === 'checkbox' ? el.checked : el.value;
-});
-function keepEdits(){
-  for(const [id, v] of Object.entries(edited)){
-    const el = document.getElementById(id);
-    if(!el) continue;
-    if(el.type === 'checkbox') el.checked = v; else if(el.value !== v) el.value = v;
-  }
+/* ======================= состояние ======================= */
+
+async function loadEvents(){
+  const list = await irc.get('/api/events?limit=60');
+  if(!Array.isArray(list)) return;
+  events = list;
+  if(tab === 'overview' && !locked()) renderView();
 }
-// после успешного сохранения набранное уже на сервере — можно забыть
-function forgetEdits(){ for(const k of Object.keys(edited)) delete edited[k]; }
-function typingInView(){
-  const a = document.activeElement;
-  return !!(a && a.closest && a.closest('#view') &&
-            (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' &&
-             !['checkbox', 'radio', 'button', 'color', 'range'].includes(a.type))));
-}
+setInterval(() => { if(tab === 'overview') loadEvents(); }, 5000);
 
 function apply(st){
-  // видимость оверлеев приходит внутри статуса модуля — поднимаем наверх,
-  // чтобы вкладка могла рисовать переключатели
+  // видимость оверлеев и окон приходит внутри статусов модулей — поднимаем наверх
   const bc = (st.modules || []).find(m => m.id === 'broadcast');
   st.overlays = (bc && bc.overlays) || [];
   st.deck_visible = !!(bc && bc.deck_visible);
   const rcm = (st.modules || []).find(m => m.id === 'racecontrol');
   st.overlay_visible = !!(rcm && rcm.overlay_visible);
-  st.overlay_available = !!(rcm && rcm.overlay_available);
-  state = st; renderHeader(st); renderNav();
-  if(typingInView()) return;             // человек печатает — вкладку не трогаем
+  state = st;
+  irc.rc.setState(st);
+  irc.deck.setState(st);
+  renderTop(st);
+  renderLock();
   renderView();
-  keepEdits();
 }
 async function refresh(){
-  try{ apply(await (await fetch('/api/state')).json()); }catch(e){}
+  const st = await irc.get('/api/state');
+  if(st) apply(st);
 }
 refresh();
+loadEvents();
+
+irc.rc.init({
+  draw: () => { if(tab === 'racecontrol' && !locked()) renderView(); },
+  active: () => tab === 'racecontrol' && !locked() && !!(mod('racecontrol') || {}).started,
+});
+
+irc.deck.init({
+  draw: () => { if(tab === 'broadcast' && !locked()) renderView(); },
+  active: () => tab === 'broadcast' && bcMode === 'live' && !locked(),
+  airActive: () => tab === 'broadcast' && !locked(),
+  side: deckSide,
+});
 
 const es = new EventSource('/api/stream');
 es.addEventListener('state', e => apply(JSON.parse(e.data)));
+es.addEventListener('incidents', e => irc.rc.setIncidents(JSON.parse(e.data)));
+es.addEventListener('rc_live', e => irc.rc.setLive(JSON.parse(e.data)));
 </script>
+<script src="/bugreport.js"></script>
 </body>
 </html>

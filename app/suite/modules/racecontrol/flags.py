@@ -37,6 +37,7 @@ DEFAULT_COMMANDS = {
     "yellow": "!y",                      # выбросить full course caution
     "pace_laps": "!pacelaps {n}",        # кругов под жёлтым
     "clear": "!clear {car}",             # снять флаги/штрафы с машины
+    "clear_all": "!clearall",            # снять чёрные флаги со всех
     "drive_through": "!black {car}",     # drive-through
     "time_penalty": "!black {car} {sec}",  # stop&hold на N секунд
     "dq": "!dq {car}",
@@ -177,6 +178,10 @@ class FlagControl:
     def pace_laps(self, laps: int) -> bool:
         return self._run("pace_laps", n=max(0, int(laps)))
 
+    def clear_all(self) -> bool:
+        """Снять чёрные флаги со всего поля."""
+        return self._run("clear_all")
+
     # ---------- по конкретной машине ----------
 
     def clear(self, car: str) -> bool:
@@ -194,3 +199,6 @@ class FlagControl:
 
     def wave_by(self, car: str) -> bool:
         return self._run("wave_by", car=str(car))
+
+    def end_of_line(self, car: str) -> bool:
+        return self._run("eol", car=str(car))

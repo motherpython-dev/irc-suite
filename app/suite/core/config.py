@@ -16,6 +16,11 @@ from pathlib import Path
 APP_NAME = "irc"
 APP_TITLE = "iRC"
 
+# Откуда программа узнаёт о новых версиях. Меняется здесь: у тех, кто уже
+# поставил программу, пустой адрес в конфиге подменяется этим при запуске.
+UPDATE_URL = ("https://github.com/motherpython-dev/irc-releases"
+              "/releases/latest/download/manifest.json")
+
 DEFAULTS = {
     "http_port": 8777,
     "poll_hz": 5.0,
@@ -25,8 +30,9 @@ DEFAULTS = {
     # Доступ к панели с телефона в своей сети. Пароля нет: включать
     # осмысленно в домашней сети, не в открытом Wi-Fi
     "allow_lan": False,
-    # автообновление
-    "update_url": "",
+    # автообновление: манифест лежит в релизах на GitHub, ссылка «latest»
+    # не меняется от версии к версии
+    "update_url": UPDATE_URL,
     "update_check_on_start": True,
     "update_check_interval_min": 60,
 
@@ -55,6 +61,7 @@ DEFAULTS = {
                 "yellow": "!y",
                 "pace_laps": "!pacelaps {n}",
                 "clear": "!clear {car}",
+                "clear_all": "!clearall",
                 "drive_through": "!black {car}",
                 "time_penalty": "!black {car} {sec}",
                 "dq": "!dq {car}",
@@ -96,10 +103,22 @@ DEFAULTS = {
             "deck_x": 470,
             "deck_y": 24,
         },
+        "telemetry": {
+            "enabled": False,
+            # телеметрия своей машины для разбора сетапа (docs/TELEMETRY_SPEC.md)
+            "hz": 60,
+            # «поворот» и «прямая» для сводок круга: |LatAccel| м/с², руль рад
+            "corner_lat": 4.0,
+            "straight_lat": 1.5,
+            "straight_steer": 0.03,
+            # включать запись .ibt iRacing при выезде из бокса
+            "auto_ibt": False,
+        },
         "rutp": {
             "enabled": False,
-            # путь к внешнему агенту; пусто = искать в стандартных местах
-            "agent_path": "",
+            # папка paint iRacing; выбирает человек (или переносится из
+            # отдельного агента RUTP при первом запуске)
+            "paint_folder": "",
         },
     },
 }
@@ -211,6 +230,9 @@ def load() -> dict:
             pass
     else:
         save(cfg)
+    if not cfg.get("update_url"):
+        # у ранних установок адрес был пустым — иначе они не обновятся никогда
+        cfg["update_url"] = UPDATE_URL
     return cfg
 
 

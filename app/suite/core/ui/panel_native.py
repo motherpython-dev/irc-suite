@@ -270,6 +270,138 @@ def _drop_stale(base: Path) -> None:
             pass                      # ещё занята — уберём в следующий раз
 
 
+# ---------- окно без системной рамки ----------
+#
+# Системная полоса с заголовком и кнопками выглядела чужой рядом с шапкой
+# программы. Окно создаётся без рамки, а заголовком служит шапка страницы:
+# WebView2 считает области с CSS `app-region: drag` заголовком окна, и
+# перетаскивание, разворот двойным щелчком делает сама Windows. Кнопки
+# свернуть / развернуть / закрыть рисует страница (irc.js) и зовёт WindowApi.
+# Размер меняется за края: по краю окна оставлена полоса EDGE px, и на
+# WM_NCHITTEST окно отвечает Windows, какой это край.
+
+FRAMELESS = True
+EDGE = 5
+WM_NCHITTEST = 0x0084
+HT = {(1, 0): 10, (2, 0): 11, (0, 1): 12, (1, 1): 13, (2, 1): 14, (0, 2): 15, (1, 2): 16, (2, 2): 17}
+GWL_STYLE = -16
+WS_SYSMENU, WS_MINIMIZEBOX, WS_MAXIMIZEBOX = 0x00080000, 0x00020000, 0x00010000
+_SUBCLASS = []                                  # держим ссылку на колбэк, иначе его соберёт GC
+
+
+def _main_window():
+    import webview
+    return webview.windows[0] if webview.windows else None
+
+
+def _hwnd(window) -> int:
+    try:
+        return int(window.native.Handle.ToInt64())
+    except Exception:                                        # noqa: BLE001
+        return 0
+
+
+def _on_ui(window, fn) -> None:
+    """Выполнить в потоке окна: WinForms не терпит вызовов из чужих потоков."""
+    from System import Action
+    window.native.Invoke(Action(fn))
+
+
+def _fit_work_area(window) -> None:
+    """Развёрнутое окно без рамки иначе закрывает панель задач."""
+    def ui():
+        from System.Windows.Forms import Screen
+        f = window.native
+        f.MaximizedBounds = Screen.FromHandle(f.Handle).WorkingArea
+    _on_ui(window, ui)
+
+
+class WindowApi:
+    """Кнопки окна в шапке страницы: window.pywebview.api.* из irc.js."""
+
+    def minimize(self):
+        w = _main_window()
+        if w:
+            w.minimize()
+
+    def toggle_maximize(self):
+        w = _main_window()
+        if not w:
+            return
+        if ctypes.windll.user32.IsZoomed(_hwnd(w)):
+            w.restore()
+        else:
+            _fit_work_area(w)
+            w.maximize()
+
+    def close(self):
+        w = _main_window()
+        if w:
+            w.destroy()
+
+
+def _install_frame(window) -> None:
+    """Включить заголовок из страницы, края для размера, сворачивание с панели задач."""
+    def ui():
+        f = window.native
+        from System.Windows.Forms import Padding
+        f.Padding = Padding(EDGE)
+        hwnd = int(f.Handle.ToInt64())
+        u32 = ctypes.windll.user32
+        get_l = getattr(u32, "GetWindowLongPtrW", u32.GetWindowLongW)
+        set_l = getattr(u32, "SetWindowLongPtrW", u32.SetWindowLongW)
+        set_l(hwnd, GWL_STYLE, get_l(hwnd, GWL_STYLE) | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
+        _subclass_edges(hwnd)
+
+    try:
+        _on_ui(window, ui)
+        _fit_work_area(window)
+    except Exception:                                        # noqa: BLE001
+        log.exception("окно без рамки не настроилось")
+
+
+def _enable_title_region(window) -> None:
+    """Шапка страницы как заголовок окна (CSS app-region). Движок готов только
+    после первой загрузки; настройка действует со следующей — перезагружаем один раз."""
+    def ui():
+        core = window.native.webview.CoreWebView2
+        if core is not None and not core.Settings.IsNonClientRegionSupportEnabled:
+            core.Settings.IsNonClientRegionSupportEnabled = True
+            core.Reload()
+    try:
+        _on_ui(window, ui)
+    except Exception:                                        # noqa: BLE001
+        log.warning("app-region не поддерживается этой версией WebView2", exc_info=True)
+
+
+def _subclass_edges(hwnd: int) -> None:
+    """Края окна — для изменения размера (отвечаем на WM_NCHITTEST)."""
+    from ctypes import wintypes as wt
+    LRESULT = ctypes.c_ssize_t
+    PROC = ctypes.WINFUNCTYPE(LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM,
+                              ctypes.c_size_t, ctypes.c_size_t)
+    u32, cc = ctypes.windll.user32, ctypes.windll.comctl32
+    cc.DefSubclassProc.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
+    cc.DefSubclassProc.restype = LRESULT
+
+    def proc(h, msg, wp, lp, _uid, _ref):
+        if msg == WM_NCHITTEST and not u32.IsZoomed(h):
+            x = ctypes.c_short(lp & 0xFFFF).value
+            y = ctypes.c_short((lp >> 16) & 0xFFFF).value
+            r = wt.RECT()
+            u32.GetWindowRect(h, ctypes.byref(r))
+            col = 0 if x < r.left + EDGE else 2 if x >= r.right - EDGE else 1
+            row = 0 if y < r.top + EDGE else 2 if y >= r.bottom - EDGE else 1
+            if (col, row) != (1, 1):
+                return HT[(col, row)]
+        return cc.DefSubclassProc(h, msg, wp, lp)
+
+    cb = PROC(proc)
+    _SUBCLASS.append(cb)
+    cc.SetWindowSubclass.argtypes = [wt.HWND, PROC, ctypes.c_size_t, ctypes.c_size_t]
+    cc.SetWindowSubclass(hwnd, cb, 1, 0)
+
+
 def run(url: str, icon: Path, storage: Path, title: str = "iRC",
         size: tuple[int, int] = (1180, 780), on_top: bool = False) -> int:
     """Показать страницу родным окном. Возврат — код выхода процесса.
@@ -291,8 +423,17 @@ def run(url: str, icon: Path, storage: Path, title: str = "iRC",
     _die_together()
     storage = _free_storage(storage)
     storage.mkdir(parents=True, exist_ok=True)
-    webview.create_window(title, url, width=size[0], height=size[1],
-                          background_color="#0B0E14", on_top=on_top)
+    # В 2.35.0 шапка в узком окне вылезала за край: крестик пропадал, а
+    # свободного места, за которое тянуть окно, не оставалось. Шапка теперь
+    # сжимает вкладки, а логотип и свободный промежуток — всегда ручка окна.
+    frameless = FRAMELESS
+    win = webview.create_window(title, url, width=size[0], height=size[1],
+                                background_color="#0B0E14", on_top=on_top,
+                                frameless=frameless, easy_drag=False,
+                                js_api=WindowApi() if frameless else None)
+    if frameless:
+        win.events.shown += lambda: _install_frame(win)
+        win.events.loaded += lambda: _enable_title_region(win)
     threading.Thread(target=_prepare_window, args=(icon,), daemon=True,
                      name="panel-window").start()
     webview.start(gui="edgechromium", private_mode=False,

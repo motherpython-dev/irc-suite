@@ -95,6 +95,22 @@ PIT_LOSS = 52.0                                # потеря на заезд, �
 SPEED = 8.0                                    # во столько раз быстрее реального
 START_LAP = 9.0                                # заезд начинается по ходу гонки
 
+# Машины по классам — чтобы в башне и на решётке была марка, как от iRacing
+DEMO_CARS = {
+    "GT3": ["Ford Mustang GT3", "Porsche 911 GT3 R", "BMW M4 GT3", "Ferrari 296 GT3",
+            "McLaren 720S GT3", "Mercedes-AMG GT3"],
+    "GT4": ["Porsche 718 Cayman GT4", "BMW M4 GT4", "Mercedes-AMG GT4", "Aston Martin Vantage GT4",
+            "Ford Mustang GT4", "McLaren 570S GT4"],
+}
+# цвета ливрей по командам
+DEMO_COLORS = ["#E63946", "#1D4ED8", "#F59E0B", "#10B981", "#8B5CF6", "#06B6D4",
+               "#F97316", "#EC4899", "#64748B", "#22C55E"]
+# Жёлтый флаг в демо: через CAUTION_FIRST реальных секунд после старта и
+# дальше каждые CAUTION_EVERY — на CAUTION_LEN секунд. Нужен, чтобы
+# проверять волну флага в оверлеях без iRacing.
+CAUTION_FIRST, CAUTION_EVERY, CAUTION_LEN = 45.0, 180.0, 30.0
+SF_GREEN, SF_YELLOW, SF_CAUTION = 0x0004, 0x0008, 0x4000
+
 # Группы камер, как их отдаёт CameraInfo на типичной трассе.
 DEMO_CAMERAS = {
     "Nose": 1, "Gearbox": 2, "Roll Bar": 3, "LF Susp": 4, "Gyro": 5,
@@ -132,6 +148,8 @@ class _Car:
     pit_until: float = 0.0
     next_stop_lap: float = 0.0
     quali: float = 0.0
+    car: str = ""
+    color: str = ""
     laps_done: int = 0
     incidents: int = 0          # только для карточек пульта, рейс-контролю не идут
 
@@ -152,6 +170,9 @@ class DemoRace:
             car = _Car(idx=i, number=num, name=name, team=team, cls=cls,
                        pace=pace, tyre=0)
             car.quali = _lap(cls) * pace * self.rnd.uniform(0.985, 0.995)
+            models = DEMO_CARS.get(cls) or DEMO_CARS["GT3"]
+            car.car = models[i % len(models)]
+            car.color = DEMO_COLORS[(i // 2) % len(DEMO_COLORS)]       # у напарников один цвет
             car.next_stop_lap = START_LAP + self.rnd.uniform(0.4, 6.0)
             self.cars.append(car)
         # стартовая расстановка — по времени квалификации внутри класса
@@ -178,6 +199,8 @@ class DemoRace:
             lap_time *= 1.0 + 0.004 * math.sin((now - self.started) / 23.0 + c.idx)
             if c.tyre == 1:                    # «медленный» компаунд
                 lap_time *= 1.004
+            if self.caution():                 # за пейс-каром
+                lap_time *= 1.6
 
             if c.on_pit:
                 if now >= c.pit_until:
@@ -228,6 +251,9 @@ class DemoRace:
                 "team": c.team,
                 "car_class": _class_id(c.cls),
                 "class_name": c.cls,
+                "car": c.car,
+                "color": c.color,
+                "cust_id": 0,
                 "gap": round(gap, 3),
                 "laps": max(0, c.laps_done),
                 "lap": max(1, int(c.distance) + 1),
@@ -251,6 +277,8 @@ class DemoRace:
                 "name": c.name,
                 "team": c.team,
                 "class_name": c.cls,
+                "car": c.car,
+                "color": c.color,
                 "time": round(c.quali, 3),
             })
         return rows
@@ -281,6 +309,23 @@ class DemoRace:
             self.cam["group"] = int(group)
             self.cam["camera"] = 1
         return True
+
+    def weather(self) -> dict:
+        """Погода демо-гонки: правдоподобная и чуть дышит, чтобы было видно обновление."""
+        t = time.monotonic() - self.started
+        return {"track": TRACK, "config": "International", "length_km": 6.02, "turns": 17,
+                "air": 24.0 + math.sin(t / 90) * 0.6, "track_temp": 37.5 + math.sin(t / 70),
+                "wind_speed": 2.4, "wind_dir": math.radians(250), "humidity": 58.0,
+                "skies": 1, "skies_text": "Partly Cloudy",
+                "time_of_day": (14 * 3600 + t * SPEED) % 86400}
+
+    def caution(self) -> bool:
+        """Идёт ли сейчас жёлтый (по реальным секундам с начала демо)."""
+        t = time.monotonic() - self.started - CAUTION_FIRST
+        return t >= 0 and t % CAUTION_EVERY < CAUTION_LEN
+
+    def session_flags(self) -> int:
+        return (SF_YELLOW | SF_CAUTION) if self.caution() else SF_GREEN
 
     def incidents(self) -> dict[int, int]:
         return {c.idx: c.incidents for c in self.cars}

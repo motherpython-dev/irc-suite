@@ -34,6 +34,10 @@ class Incident:
     reviewed: int = 0
     note: str = ""
     created_at: str = ""
+    # решение маршала: racing | penalty | review; пусто — не разобран
+    decision: str = ""
+    decision_detail: dict = field(default_factory=dict)
+    synced: int = 0                  # решение принято сайтом
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -75,8 +79,12 @@ class Storage(Protocol):
             self._c().commit()
 
     def set_reviewed(self, incident_id: int, reviewed: bool, note: str = "") -> None: ...
+    def set_decision(self, incident_id: int, decision: str, detail: dict) -> None: ...
+    def unsynced_decisions(self, limit: int = 200) -> list[Incident]: ...
+    def mark_synced(self, ids: list[int]) -> None: ...
     def known_incident_counts(self, subsession_id: int, track: str = "") -> dict[int, int]: ...
     def log_event(self, kind: str, payload: dict[str, Any]) -> None: ...
+    def recent_events(self, limit: int = 50) -> list[dict]: ...
 
 
 SCHEMA = """
@@ -99,7 +107,10 @@ CREATE TABLE IF NOT EXISTS incidents (
     track         TEXT    NOT NULL DEFAULT '',
     reviewed      INTEGER NOT NULL DEFAULT 0,
     note          TEXT    NOT NULL DEFAULT '',
-    created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+    decision        TEXT    NOT NULL DEFAULT '',
+    decision_detail TEXT    NOT NULL DEFAULT '{}',
+    synced          INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_inc_session ON incidents(subsession_id, session_num);
 
@@ -140,6 +151,11 @@ MIGRATIONS = [
     ("incident_kind",
      ["ALTER TABLE incidents ADD COLUMN kind TEXT NOT NULL DEFAULT 'incident'",
       "ALTER TABLE incidents ADD COLUMN duration REAL NOT NULL DEFAULT 0"]),
+    # решение маршала по инциденту и отметка, что сайт его принял
+    ("incident_decision",
+     ["ALTER TABLE incidents ADD COLUMN decision TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE incidents ADD COLUMN decision_detail TEXT NOT NULL DEFAULT '{}'",
+      "ALTER TABLE incidents ADD COLUMN synced INTEGER NOT NULL DEFAULT 0"]),
 ]
 
 
@@ -181,6 +197,7 @@ class SQLiteStorage:
         already = {
             "incident_kind": lambda: "kind" in self._columns("incidents"),
             "inc_counters_track": lambda: "track" in self._columns("inc_counters"),
+            "incident_decision": lambda: "decision" in self._columns("incidents"),
         }
 
         for name, statements in MIGRATIONS:
@@ -240,6 +257,10 @@ class SQLiteStorage:
             kind=(r["kind"] if "kind" in r.keys() else "incident"),
             duration=(r["duration"] if "duration" in r.keys() else 0.0),
             created_at=r["created_at"],
+            decision=(r["decision"] if "decision" in r.keys() else ""),
+            decision_detail=(json.loads(r["decision_detail"] or "{}")
+                             if "decision_detail" in r.keys() else {}),
+            synced=(r["synced"] if "synced" in r.keys() else 0),
         )
 
     def list_incidents(self, session_num: int | None = None, limit: int = 200,
@@ -306,6 +327,31 @@ class SQLiteStorage:
                               (1 if reviewed else 0, note, incident_id))
             self._c().commit()
 
+    def set_decision(self, incident_id: int, decision: str, detail: dict) -> None:
+        """Решение маршала. Инцидент считается разобранным; на сайт оно ещё не ушло."""
+        with self._lock:
+            self._c().execute(
+                "UPDATE incidents SET decision=?, decision_detail=?, synced=0, reviewed=?,"
+                " note=? WHERE id=?",
+                (decision, json.dumps(detail, ensure_ascii=False), 1 if decision else 0,
+                 str(detail.get("note") or ""), incident_id))
+            self._c().commit()
+
+    def unsynced_decisions(self, limit: int = 200) -> list[Incident]:
+        with self._lock:
+            rows = self._c().execute(
+                "SELECT * FROM incidents WHERE decision != '' AND synced = 0"
+                " AND subsession_id > 0 ORDER BY id LIMIT ?", (limit,)).fetchall()
+            return [self._row_to_inc(r) for r in rows]
+
+    def mark_synced(self, ids: list[int]) -> None:
+        if not ids:
+            return
+        with self._lock:
+            self._c().executemany("UPDATE incidents SET synced=1 WHERE id=?",
+                                  [(i,) for i in ids])
+            self._c().commit()
+
     def known_incident_counts(self, subsession_id: int,
                               track: str = "") -> dict[int, int]:
         """Счётчики на момент прошлого запуска — база для дельт после рестарта."""
@@ -321,3 +367,24 @@ class SQLiteStorage:
             self._c().execute("INSERT INTO events (kind, payload) VALUES (?,?)",
                               (kind, json.dumps(payload, ensure_ascii=False)))
             self._c().commit()
+
+    # служебные команды повтора (шаг, пауза, камера) в журнал панели не идут:
+    # их десятки за минуту, и они вытесняют то, что человеку важно
+    QUIET_EVENTS = ("cmd_%", "incident_merged")
+
+    def recent_events(self, limit: int = 50) -> list[dict]:
+        """Последние события для журнала панели, новые сверху."""
+        where = " AND ".join("kind NOT LIKE ?" for _ in self.QUIET_EVENTS)
+        with self._lock:
+            rows = self._c().execute(
+                f"SELECT id, kind, payload, created_at FROM events WHERE {where} "
+                "ORDER BY id DESC LIMIT ?", (*self.QUIET_EVENTS, int(limit))).fetchall()
+        out = []
+        for r in rows:
+            try:
+                payload = json.loads(r["payload"])
+            except ValueError:
+                payload = {}
+            out.append({"id": r["id"], "kind": r["kind"], "payload": payload,
+                        "at": r["created_at"]})
+        return out

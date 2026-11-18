@@ -6,6 +6,9 @@
 <style>
   /* Фон прозрачный: страница показывается и в прозрачном окне поверх
      iRacing, и источником в OBS. Размеры и вид — из описания оверлея. */
+  /* шрифты оверлеев те же, что у программы: Exo 2 — текст, Roboto Mono — цифры */
+  @font-face{font-family:'Exo 2';src:url('/ui/fonts/Exo2.ttf') format('truetype');font-weight:100 900;font-display:block}
+  @font-face{font-family:'Roboto Mono';src:url('/ui/fonts/RobotoMono.ttf') format('truetype');font-weight:100 700;font-display:block}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:transparent;overflow:hidden;user-select:none}
   #ov{position:absolute;left:14px;top:14px;opacity:0;
@@ -26,9 +29,19 @@
   .el{position:absolute;display:flex;align-items:center;white-space:nowrap;overflow:hidden}
   .el .t{overflow:hidden;text-overflow:ellipsis;padding:0 1px}
   .el-image img{width:100%;height:100%}
-  .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-         color:#8B98A9;background:#141923;
-         font:13px 'Bahnschrift Condensed','Arial Narrow',sans-serif;letter-spacing:.5px}
+  .empty{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;
+         color:#8E8E98;font:700 12px 'Exo 2','Segoe UI',sans-serif;letter-spacing:1.6px;text-transform:uppercase}
+  /* плашка флага под шапкой: «пейс-кар на трассе», «рестарт» */
+  .flagbar{position:relative;display:none;align-items:center;padding:0 10px;color:#111;white-space:nowrap;overflow:hidden;
+           font:800 12px 'Exo 2','Segoe UI',sans-serif;letter-spacing:1.6px;text-transform:uppercase}
+  /* разделитель «топ + окно»: подпись между линиями */
+  .sep{position:absolute;display:none;align-items:center;gap:10px;white-space:nowrap;
+       font:800 10.5px 'Exo 2','Segoe UI',sans-serif;letter-spacing:1.6px;text-transform:uppercase}
+  .sep::before,.sep::after{content:"";flex:1;height:1px;background:currentColor;opacity:.35}
+  /* волна флага: полоса сверху вниз и вспышка строк, одна на весь оверлей */
+  .wave{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden}
+  .wave .band{position:absolute;left:0;right:0;top:0;height:90px;opacity:0;mix-blend-mode:screen}
+  .lit{position:absolute;inset:0;pointer-events:none;opacity:0;z-index:4}
 </style>
 </head>
 <body data-ov="__OV__">

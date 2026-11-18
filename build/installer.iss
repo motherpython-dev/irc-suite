@@ -4,7 +4,7 @@
 
 #define AppName        "iRC"
 #define AppShortName   "iRC"
-#define AppVersion     "2.16.1"
+#define AppVersion     "2.39.4"
 #define AppPublisher   "iRChamps"
 #define AppExe         "iRC.exe"
 
@@ -18,7 +18,9 @@ DefaultGroupName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 OutputDir=..\dist\installer
-OutputBaseFilename={#AppShortName}-setup-{#AppVersion}
+; имя без версии: установщик лежит по постоянному адресу и меняется только
+; вместе с ядром — так SmartScreen копит репутацию одного и того же файла
+OutputBaseFilename={#AppShortName}-setup
 SetupIconFile=..\assets\icon.ico
 Compression=lzma2/max
 SolidCompression=yes

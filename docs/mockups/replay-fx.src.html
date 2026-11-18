@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Шторка повтора</title>
+<style>
+@font-face{font-family:'Exo 2';src:url(data:font/ttf;base64,__EXO__) format('truetype');font-weight:100 900}
+@font-face{font-family:'Roboto Mono';src:url(data:font/ttf;base64,__MONO__) format('truetype');font-weight:100 700}
+:root{--acc:#FF5A1F;--fg:#EAEEF5;--dim:#8E8E98;--bg:#0b0c10;--air:#FF2D2D}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px 'Exo 2',system-ui,sans-serif;padding:20px 16px 40px}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font-size:19px;margin:0 0 4px;letter-spacing:.04em}
+p.sub{color:var(--dim);font-size:13px;margin:0 0 14px;line-height:1.5;max-width:900px}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.ctl b{font:800 11px 'Exo 2';letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.seg{display:inline-flex;background:#1a1d24;border-radius:5px 5px 2px 2px;flex-wrap:wrap}
+.seg button,.btn{font:800 11px 'Exo 2';letter-spacing:.12em;text-transform:uppercase;color:var(--dim);background:none;border:0;height:32px;padding:0 12px;box-shadow:inset 0 -2px 0 #2e3440;cursor:pointer}
+.seg button.on{color:#fff;box-shadow:inset 0 -2px 0 var(--acc),0 6px 12px -6px rgba(255,90,31,.7)}
+.btn{background:#1a1d24;border-radius:5px 5px 2px 2px;color:#fff}
+.btn.pri{background:linear-gradient(180deg,#2A1D19,#22171A);box-shadow:inset 0 -3px 0 var(--acc),0 8px 16px -6px rgba(255,90,31,.75)}
+.btn.live{background:linear-gradient(180deg,#2A1717,#211517);box-shadow:inset 0 -3px 0 var(--air),0 8px 16px -6px rgba(255,45,45,.75)}
+.note{color:var(--dim);font-size:12.5px;line-height:1.55;margin-top:12px;max-width:980px}
+.note b{color:var(--fg)}
+
+/* сцена 16:9 — «кадр трансляции» */
+.stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#20262f;container-type:inline-size}
+.frame{position:absolute;inset:0;background:
+  radial-gradient(120% 80% at 70% 10%,rgba(255,255,255,.18),transparent 60%),
+  linear-gradient(180deg,#5d7d9c 0%,#9fb7c9 38%,#6b7a62 39%,#4a5546 60%,#2e3330 100%)}
+.frame .trk{position:absolute;left:-10%;right:-10%;top:52%;height:34%;background:linear-gradient(180deg,#3b3f45,#26292e);transform:perspective(60cqw) rotateX(58deg);border-top:.4cqw solid #e8e8e8;border-bottom:.4cqw solid #e8e8e8}
+.frame .car{position:absolute;width:9cqw;height:4cqw;border-radius:1.4cqw 1.4cqw .6cqw .6cqw;top:60%;background:linear-gradient(90deg,#51127F,#20F3BA);box-shadow:0 .6cqw 1cqw rgba(0,0,0,.5);animation:drive 6s linear infinite}
+.frame .car.b{background:linear-gradient(90deg,#10B981,#0b6e4e);top:64%;animation-duration:6.6s;animation-delay:-2s}
+@keyframes drive{from{left:-12%}to{left:108%}}
+.frame.rp{filter:saturate(.75) contrast(1.05)}
+/* башня в кадре — для масштаба */
+.tw{position:absolute;left:2.2cqw;top:4cqw;width:17cqw;background:rgba(16,20,28,.92);border-radius:.5cqw;overflow:hidden;font:700 1cqw 'Exo 2'}
+.tw div{height:2.1cqw;display:flex;align-items:center;gap:.8cqw;padding:0 .9cqw;border-top:1px solid rgba(255,255,255,.05)}
+.tw div:first-child{background:#141923;font-weight:800;letter-spacing:.12em;color:var(--acc);font-size:.85cqw}
+.tw i{font-style:normal;color:var(--dim);width:1.2cqw;text-align:right}
+
+/* метка «повтор» в углу, пока идёт повтор */
+.bug{position:absolute;right:2.2cqw;top:3.4cqw;display:flex;align-items:center;gap:.9cqw;height:3cqw;padding:0 1.3cqw 0 1cqw;border-radius:.45cqw;
+     background:linear-gradient(180deg,rgba(30,22,24,.96),rgba(16,20,28,.94));box-shadow:0 .6cqw 1.6cqw rgba(0,0,0,.45);opacity:0;transform:translateY(-.8cqw);transition:.35s}
+.bug.on{opacity:1;transform:none}
+.bug::before{content:"";position:absolute;left:0;top:.6cqw;bottom:.6cqw;width:.25cqw;border-radius:0 .2cqw .2cqw 0;background:var(--acc)}
+.bug .ic{font:900 1.2cqw 'Exo 2';color:var(--acc);letter-spacing:-.1em}
+.bug .t{font:800 1.15cqw 'Exo 2';letter-spacing:.2em}
+.bug .pl{width:3.3cqw;height:1.9cqw;border-radius:.3cqw;display:grid;place-items:center;font:italic 900 1.2cqw 'Exo 2';background:linear-gradient(90deg,#51127F,#20F3BA);text-shadow:0 1px 2px rgba(0,0,0,.8)}
+.bug .nm{font:800 1.1cqw 'Exo 2';letter-spacing:.08em;color:#C3C9D3}
+.bug .lv{font:800 1.15cqw 'Exo 2';letter-spacing:.2em;color:#fff;display:none}
+.bug.live .ic,.bug.live .t,.bug.live .pl,.bug.live .nm{display:none}
+.bug.live .lv{display:block}
+.bug.live::before{background:var(--air)}
+.bug.live .lv::before{content:"● ";color:var(--air)}
+
+/* общий центр шторки: логотип и слово */
+.fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.fx .mid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1.2cqw;opacity:0}
+.fx .mid svg{width:16cqw;height:auto;filter:drop-shadow(0 0 1.4cqw rgba(255,90,31,.35))}
+.fx .mid .w{font:800 2cqw 'Exo 2';letter-spacing:.5em;padding-left:.5em;color:#fff}
+.fx .mid .w.lv::before{content:"● ";color:var(--air)}
+
+/* A — шеврон: оранжевая полоса со скосом проходит слева направо, за ней — графит */
+.A .band{position:absolute;top:-10%;bottom:-10%;left:0;width:160%;transform:translateX(-110%) skewX(-18deg)}
+.A .band.o{background:linear-gradient(90deg,#FF5A1F,#ff8a4c);z-index:1}
+.A .band.d{background:linear-gradient(180deg,#19161B,#101217);z-index:2}
+.A.in .band.o{animation:aIn .5s cubic-bezier(.7,0,.3,1) forwards}
+.A.in .band.d{animation:aIn .5s .08s cubic-bezier(.7,0,.3,1) forwards}
+.A.cover .band{transform:translateX(-25%) skewX(-18deg)}
+.A.out .band.d{animation:aOut .5s cubic-bezier(.7,0,.3,1) forwards;transform:translateX(-25%) skewX(-18deg)}
+.A.out .band.o{animation:aOut .5s .08s cubic-bezier(.7,0,.3,1) forwards;transform:translateX(-25%) skewX(-18deg)}
+@keyframes aIn{from{transform:translateX(-110%) skewX(-18deg)}to{transform:translateX(-25%) skewX(-18deg)}}
+@keyframes aOut{from{transform:translateX(-25%) skewX(-18deg)}to{transform:translateX(75%) skewX(-18deg)}}
+.A .mid{z-index:3}
+
+/* B — ламели: горизонтальные пластины въезжают с чередующихся сторон. Светится
+   только передний (торцевой) край пластины, пока она едет; сомкнулись — свечение
+   гаснет, линий поперёк кадра нет, и только потом проявляется логотип */
+.B .sl{position:absolute;left:0;right:0;background:#141519}
+.B .sl::after{content:"";position:absolute;top:0;bottom:0;width:.3cqw;background:var(--acc);box-shadow:0 0 1.2cqw var(--acc),0 0 .3cqw #fff;opacity:0}
+.B .sl.r::after{right:0} .B .sl.l::after{left:0}
+.B.in .sl{animation:bIn .42s cubic-bezier(.7,0,.3,1) both}
+.B.in .sl::after{animation:egIn .5s linear both;animation-delay:inherit}
+.B.cover .sl{transform:none}
+.B.out .sl{animation:bOut .42s cubic-bezier(.7,0,.3,1) both;animation-delay:var(--od)}
+.B.out .sl::after{animation:egOut .45s linear both;animation-delay:var(--od)}
+@keyframes bIn{from{transform:translateX(var(--from))}to{transform:none}}
+@keyframes bOut{from{transform:none}to{transform:translateX(var(--to))}}
+
+/* C — диафрагма: экран сжимается кругом к логотипу, кольцо светится */
+.C .iris{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,#1c1719 0,#101217 70%)}
+.C .ring{position:absolute;left:50%;top:50%;width:150cqw;height:150cqw;border-radius:50%;transform:translate(-50%,-50%) scale(1);box-shadow:0 0 0 .5cqw var(--acc),0 0 3cqw var(--acc);opacity:0}
+.C.in .iris{animation:cIn .55s cubic-bezier(.7,0,.3,1) forwards}
+.C.cover .iris{clip-path:circle(120% at 50% 50%)}
+.C.out .iris{animation:cOut .55s cubic-bezier(.7,0,.3,1) forwards}
+.C.in .ring{animation:cRing .55s cubic-bezier(.7,0,.3,1) forwards}
+.C.out .ring{animation:cRingO .55s cubic-bezier(.7,0,.3,1) forwards}
+@keyframes cIn{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(120% at 50% 50%)}}
+@keyframes cOut{from{clip-path:circle(120% at 50% 50%)}to{clip-path:circle(0% at 50% 50%)}}
+@keyframes cRing{0%{opacity:1;transform:translate(-50%,-50%) scale(.02)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+@keyframes cRingO{0%{opacity:0;transform:translate(-50%,-50%) scale(1)}20%{opacity:1}100%{opacity:1;transform:translate(-50%,-50%) scale(.02)}}
+
+/* D — скос: две панели сходятся по диагонали. Светятся только их края, пока
+   панели едут; на встрече свечение гаснет, и лишь потом проявляется логотип —
+   линия и логотип на экране вместе не бывают. При открытии наоборот: сначала
+   уходит логотип, потом панели расходятся. Края — SVG по тем же точкам, что и
+   край панелей: угол совпадает при любом размере кадра */
+.D .pn{position:absolute;inset:-20%;background:#141519}
+.D .pn.t{clip-path:polygon(0 0,100% 0,100% 30.4%,0 70.4%)}
+.D .pn.b{clip-path:polygon(0 69.6%,100% 29.6%,100% 100%,0 100%)}
+.D .eg{position:absolute;inset:-20%;width:140%;height:140%;overflow:visible;opacity:0}
+.D .eg line{stroke:var(--acc);stroke-width:3;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 6px #FF5A1F) drop-shadow(0 0 2px #fff)}
+.D.in .pn.t,.D.in .eg.t{animation:dT .5s cubic-bezier(.7,0,.3,1) forwards}
+.D.in .pn.b,.D.in .eg.b{animation:dB .5s cubic-bezier(.7,0,.3,1) forwards}
+.D.in .eg{animation-name:dT,egIn;animation-duration:.5s,.56s;animation-timing-function:cubic-bezier(.7,0,.3,1),linear;animation-fill-mode:forwards}
+.D.in .eg.b{animation-name:dB,egIn}
+.D.cover .pn,.D.cover .eg{transform:none}
+.D.out .pn.t,.D.out .eg.t{animation:dT .5s .3s cubic-bezier(.7,0,.3,1) reverse both}
+.D.out .pn.b,.D.out .eg.b{animation:dB .5s .3s cubic-bezier(.7,0,.3,1) reverse both}
+.D.out .eg{animation-name:dT,egOut;animation-duration:.5s,.5s;animation-delay:.3s,.3s;animation-direction:reverse,normal;animation-fill-mode:both}
+.D.out .eg.b{animation-name:dB,egOut}
+@keyframes dT{from{transform:translate(-30%,-60%)}to{transform:none}}
+@keyframes dB{from{transform:translate(30%,60%)}to{transform:none}}
+@keyframes egIn{0%{opacity:0}15%{opacity:1}80%{opacity:1}100%{opacity:0}}
+@keyframes egOut{0%{opacity:0}20%{opacity:1}85%{opacity:1}100%{opacity:0}}
+/* логотип у скоса — только когда свечение уже погасло */
+.fx.B.in .mid,.fx.D.in .mid{animation:none;opacity:0}
+.fx.B.cover .mid,.fx.D.cover .mid{animation:midLate .35s .1s both}
+@keyframes midLate{from{opacity:0;transform:translate(-50%,-46%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%)}}
+
+/* слово и логотип: появляются под конец закрытия, уходят в начале открытия */
+.fx.in .mid{animation:midIn .5s forwards}
+.fx.cover .mid{opacity:1}
+.fx.out .mid{animation:midOut .3s forwards}
+@keyframes midIn{0%,45%{opacity:0;transform:translate(-50%,-46%) scale(.96)}100%{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes midOut{from{opacity:1}to{opacity:0;transform:translate(-50%,-54%) scale(1.02)}}
+.tl{display:flex;gap:6px;margin-top:10px;align-items:center;color:var(--dim);font:600 12px 'Roboto Mono'}
+.tl i{display:inline-block;height:6px;border-radius:3px;background:#2e3440}
+.tl i.a{background:var(--acc)}
+</style></head><body><div class="wrap">
+<h1>Шторка повтора — варианты</h1>
+<p class="sub">Режиссёр нажимает «Повтор» у инцидента: шторка закрывает кадр, под ней сим перематывает ленту и наводит камеру, затем шторка открывается уже на повторе.
+Пока идёт повтор, в углу метка «ПОВТОР» с номером и фамилией. «Вернуться в LIVE» — та же шторка, со словом LIVE.</p>
+<div class="ctl"><b>Вариант</b><span class="seg" id="var"><button data-v="A">A · Шеврон</button><button data-v="B">B · Ламели</button><button data-v="C">C · Диафрагма</button><button class="on" data-v="D">D · Скос</button></span>
+  <button class="btn pri" id="go-rp">▶ В повтор</button><button class="btn live" id="go-live">● В LIVE</button></div>
+<div class="stage"><div class="frame" id="frame"><div class="trk"></div><div class="car"></div><div class="car b"></div></div>
+  <div class="tw"><div>ГОНКА · КРУГ 51/267</div><div><i>1</i>VARFOLOMEEV</div><div><i>2</i>SIDNEV</div><div><i>3</i>STRUTSEV</div><div><i>4</i>SOBETOV</div><div><i>5</i>GLADKOV</div></div>
+  <div class="bug" id="bug"><span class="ic">◀◀</span><span class="t">ПОВТОР</span><span class="pl">2</span><span class="nm">SOBETOV · КРУГ 51</span><span class="lv">LIVE</span></div>
+  <div class="fx" id="fx"></div></div>
+<div class="tl" id="tl"></div>
+<div class="note"><b>Тайминг:</b> закрытие 0,5 с → держим ~1,4 с, пока сим ищет кадр (зритель видит логотип и слово) → открытие 0,5 с. Метка в углу появляется вместе с открытием и висит весь повтор; при возврате в LIVE на 3 с меняется на «● LIVE» и уходит.<br>
+<b>В программе</b> шторка — отдельный оверлей трансляции на весь экран (как остальные — окно поверх сима или страница для OBS), метка — второй, маленький.</div>
+</div>
+<script>
+const LOGO = `__LOGO_SVG__`;
+let V = 'D', busy = false;
+const fx = document.getElementById('fx'), bug = document.getElementById('bug'), frame = document.getElementById('frame'), tl = document.getElementById('tl');
+function build(word){
+  let inner = '';
+  if(V === 'A') inner = '<div class="band o"></div><div class="band d"></div>';
+  if(V === 'B') inner = Array.from({length: 8}, (_, i) => `<div class="sl ${i % 2 ? 'l' : 'r'}" style="top:${i * 12.5}%;height:12.6%;--from:${i % 2 ? '' : '-'}105%;--to:${i % 2 ? '-' : ''}105%;animation-delay:${i * 0.03}s;--od:${0.3 + i * 0.03}s"></div>`).join('');
+  if(V === 'C') inner = '<div class="iris"></div><div class="ring"></div>';
+  if(V === 'D') inner = '<div class="pn t"></div><div class="pn b"></div><svg class="eg t" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="70" x2="100" y2="30"/></svg><svg class="eg b" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="70" x2="100" y2="30"/></svg>';
+  fx.innerHTML = inner + `<div class="mid">${LOGO}<div class="w ${word === 'LIVE' ? 'lv' : ''}">${word}</div></div>`;
+  fx.className = 'fx ' + V;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function step(k){ tl.innerHTML = ['закрытие', 'перемотка (сим ищет кадр)', 'открытие'].map((t, i) => `<i class="${i <= k ? 'a' : ''}" style="width:${[50, 140, 50][i]}px"></i>${t}`).join(' '); }
+async function run(toLive){
+  if(busy) return; busy = true;
+  build(toLive ? 'LIVE' : 'ПОВТОР');
+  fx.classList.add('in'); step(0); await sleep(560);
+  fx.classList.remove('in'); fx.classList.add('cover'); step(1);
+  frame.classList.toggle('rp', !toLive);
+  bug.classList.remove('on');
+  await sleep(1400);
+  fx.classList.remove('cover'); fx.classList.add('out'); step(2);
+  bug.classList.toggle('live', toLive); bug.classList.add('on');
+  await sleep(V === 'D' ? 860 : V === 'B' ? 1000 : 560);
+  fx.className = 'fx'; fx.innerHTML = ''; tl.innerHTML = '';
+  if(toLive){ await sleep(2500); bug.classList.remove('on'); }
+  busy = false;
+}
+document.getElementById('go-rp').onclick = () => run(false);
+document.getElementById('go-live').onclick = () => run(true);
+document.getElementById('var').onclick = e => { const b = e.target.closest('[data-v]'); if(!b) return; V = b.dataset.v;
+  document.querySelectorAll('#var button').forEach(x => x.classList.toggle('on', x === b)); run(false); };
+</script></body></html>

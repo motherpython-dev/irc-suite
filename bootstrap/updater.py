@@ -31,7 +31,7 @@ from . import paths
 from .version import CORE_VERSION
 
 USER_AGENT = f"ichamps-suite/{CORE_VERSION}"
-MAX_BUNDLE_BYTES = 64 * 1024 * 1024
+MAX_BUNDLE_BYTES = 96 * 1024 * 1024        # установщик ~24 МБ, бандл — сотни КБ
 FAIL_LIMIT = 2               # столько неудачных стартов подряд -> откат
 
 
@@ -153,6 +153,7 @@ class Updater:
         min_core = str(man.get("min_core") or "0.0.0")
         if _vt(CORE_VERSION) < _vt(min_core):
             return {"ok": False, "update": False, "core_update_required": True,
+                    "manifest": man, "version": remote,
                     "message": f"Версия {remote} требует нового клиента "
                                f"(ядро {min_core}, установлено {CORE_VERSION}). "
                                f"Нужен новый инсталлятор."}
@@ -203,6 +204,38 @@ class Updater:
         self._prune(keep={version, str(ptr.get("last_good") or "")})
         return {"ok": True, "updated": True, "version": version,
                 "message": f"Обновлено до {version}. Перезапустите приложение."}
+
+    def fetch_installer(self, man: dict) -> dict:
+        """Скачать установщик новой версии — когда обновления бандла мало.
+
+        Бандл обновляется сам, но при смене ядра (зависимости, точка входа)
+        нужен новый exe. Его тоже качаем и проверяем по sha256; запускает
+        установщик пользователь из панели, молча подменять exe нельзя.
+        """
+        core = man.get("core") or {}
+        url = str(core.get("url") or "")
+        want = str(core.get("sha256") or "").lower()
+        if not url:
+            return {"ok": False, "message": "В манифесте нет установщика"}
+        dest = paths.data_dir() / "updates"
+        dest.mkdir(parents=True, exist_ok=True)
+        name = url.rsplit("/", 1)[-1] or f"iRC-setup-{man.get('version')}.exe"
+        target = dest / name
+        if target.exists() and want and hashlib.sha256(target.read_bytes()).hexdigest() == want:
+            return {"ok": True, "path": str(target), "cached": True}
+        try:
+            blob = _fetch(url, timeout=180)
+        except Exception as e:
+            return {"ok": False, "message": f"Скачивание установщика не удалось: {e}"}
+        if want and hashlib.sha256(blob).hexdigest() != want:
+            return {"ok": False, "message": "Контрольная сумма установщика не сошлась"}
+        tmp = target.with_suffix(".part")
+        tmp.write_bytes(blob)
+        tmp.replace(target)
+        for old in dest.glob("*.exe"):          # держим только свежий
+            if old != target:
+                old.unlink(missing_ok=True)
+        return {"ok": True, "path": str(target)}
 
     def check_and_apply(self) -> dict:
         res = self.check()
